@@ -57,3 +57,32 @@ If you need to manually apply the enhanced styles, use the command:
 
 To edit your custom tags:
 `Better Comments Enhanced: Edit Custom Comment Tags`
+
+## Emoji Support
+
+Better Comment Tags supports emojis for visual distinction in comments:
+
+### Default Emojis
+
+Each built-in tag comes with a default emoji like:
+
+- TODO: 📋
+- FIXME: 🔧
+- BUG: 🐛
+
+### Customizing Emojis
+
+When creating or editing custom tags, you can:
+
+1. Use the emoji field to set a custom emoji
+2. Toggle the "Use emoji" checkbox to enable/disable emoji for that tag
+3. Leave the emoji field empty to use the default mapping
+
+### Global Emoji Setting
+
+You can globally enable or disable emojis in Settings:
+`betterCommentsEnhanced.useEmojis`: true/false
+
+### Using Snippets
+
+When typing a tag name (e.g., "todo"), the snippet will automatically include the appropriate emoji if enabled.

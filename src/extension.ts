@@ -242,6 +242,10 @@ interface CustomTag {
   strikethrough?: boolean;
   underline?: boolean;
   backgroundColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  emoji?: string;
+  useEmoji?: boolean;
 }
 
 /**
@@ -261,6 +265,8 @@ function generateGeneralSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
+  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
     // Extract tag name without the colon
@@ -272,13 +278,24 @@ function generateGeneralSnippets(
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
 
-    // Select an appropriate emoji for the tag (you can customize this mapping)
-    const emoji = getEmojiForTag(tagName);
+    // Determine if we should use emoji for this tag
+    const useEmoji =
+      tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+
+    // Select appropriate emoji based on user preference
+    let emojiString = "";
+    if (useEmoji) {
+      // Use custom emoji if provided, otherwise fall back to mapped emoji
+      emojiString = tag.emoji || getEmojiForTag(tagName);
+      if (emojiString) {
+        emojiString = `${emojiString}`;
+      }
+    }
 
     snippets[friendlyName] = {
       prefix: tagName,
       scope: "javascript,typescript,c,cpp,csharp,java",
-      body: [`// ${tag.tag} ${emoji} $1`],
+      body: [`// ${tag.tag} ${emojiString} $1`],
       description: `Highlights ${tagName} comments`,
     };
   });
@@ -293,6 +310,8 @@ function generatePythonSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
+  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
     const tagName = tag.tag.replace(":", "").toLowerCase().trim();
@@ -301,12 +320,25 @@ function generatePythonSnippets(
     const friendlyName = `${
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
-    const emoji = getEmojiForTag(tagName);
+
+    // Determine if we should use emoji for this tag
+    const useEmoji =
+      tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+
+    // Select appropriate emoji based on user preference
+    let emojiString = "";
+    if (useEmoji) {
+      // Use custom emoji if provided, otherwise fall back to mapped emoji
+      emojiString = tag.emoji || getEmojiForTag(tagName);
+      if (emojiString) {
+        emojiString = `${emojiString}`;
+      }
+    }
 
     snippets[friendlyName] = {
       prefix: tagName,
       scope: "python",
-      body: [`# ${tag.tag} ${emoji} $1`],
+      body: [`# ${tag.tag} ${emojiString} $1`],
       description: `Highlights ${tagName} comments`,
     };
   });
@@ -321,6 +353,8 @@ function generateHtmlSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
+  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
     const tagName = tag.tag.replace(":", "").toLowerCase().trim();
@@ -329,12 +363,25 @@ function generateHtmlSnippets(
     const friendlyName = `${
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
-    const emoji = getEmojiForTag(tagName);
+
+    // Determine if we should use emoji for this tag
+    const useEmoji =
+      tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+
+    // Select appropriate emoji based on user preference
+    let emojiString = "";
+    if (useEmoji) {
+      // Use custom emoji if provided, otherwise fall back to mapped emoji
+      emojiString = tag.emoji || getEmojiForTag(tagName);
+      if (emojiString) {
+        emojiString = `${emojiString}`;
+      }
+    }
 
     snippets[friendlyName] = {
       prefix: tagName,
       scope: "html,xml,svg",
-      body: [`<!-- ${tag.tag} ${emoji} $1 -->`],
+      body: [`<!-- ${tag.tag} ${emojiString} $1 -->`],
       description: `Highlights ${tagName} comments`,
     };
   });

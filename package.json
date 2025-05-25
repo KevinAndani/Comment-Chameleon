@@ -60,6 +60,11 @@
     "configuration": {
       "title": "Better Comments Enhanced",
       "properties": {
+        "betterCommentsEnhanced.useEmojis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable emojis in comment snippets globally"
+        },
         "betterCommentsEnhanced.customTags": {
           "type": "array",
           "default": [],
@@ -86,6 +91,12 @@
                 "type": "boolean"
               },
               "italic": {
+                "type": "boolean"
+              },
+              "emoji": {
+                "type": "string"
+              },
+              "useEmoji": {
                 "type": "boolean"
               }
             }

@@ -150,6 +150,13 @@ export class TagEditorPanel {
           align-items: center;
           gap: 5px;
         }
+        .emoji-preview {
+          display: inline-block;
+          width: 1.2em;
+          height: 1.2em;
+          margin-left: 5px;
+          font-size: 1.2em;
+        }
       </style>
     </head>
     <body>
@@ -350,7 +357,70 @@ export class TagEditorPanel {
               formatRow.appendChild(formatLabel);
               formatRow.appendChild(checkboxGroup);
               container.appendChild(formatRow);
-              
+
+              // Emoji settings
+              const emojiRow = document.createElement('div');
+              emojiRow.className = 'tag-row';
+              const emojiLabel = document.createElement('label');
+              emojiLabel.textContent = 'Emoji:';
+              const emojiInput = document.createElement('input');
+              emojiInput.type = 'text';
+              emojiInput.value = tag.emoji || '';
+              emojiInput.placeholder = 'Add custom emoji';
+              emojiInput.maxLength = 2; // Most emoji are 1-2 code points
+              emojiInput.oninput = () => {
+                customTags[index].emoji = emojiInput.value;
+                // Update emoji preview immediately
+                const currentTagName = customTags[index].tag.replace(":", "").toLowerCase().trim();
+                document.getElementById(\`emoji-preview-\${index}\`).textContent = emojiInput.value || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
+                updatePreview(index);
+              };
+
+              const useEmojiCheck = document.createElement('input');
+              useEmojiCheck.type = 'checkbox';
+              useEmojiCheck.id = \`use-emoji-\${index}\`;
+              useEmojiCheck.checked = tag.useEmoji !== false; // Default to true if not specified
+              useEmojiCheck.onchange = () => {
+                customTags[index].useEmoji = useEmojiCheck.checked;
+                emojiInput.disabled = !useEmojiCheck.checked;
+                const currentTagName = customTags[index].tag.replace(":", "").toLowerCase().trim();
+                const emojiPreviewSpan = document.getElementById(\`emoji-preview-\${index}\`);
+                if (!useEmojiCheck.checked) {
+                  emojiPreviewSpan.textContent = '';
+                } else {
+                  emojiPreviewSpan.textContent = emojiInput.value || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
+                }
+                updatePreview(index);
+              };
+
+              const useEmojiLabel = document.createElement('label');
+              useEmojiLabel.htmlFor = \`use-emoji-\${index}\`;
+              useEmojiLabel.textContent = 'Use emoji';
+
+              const emojiPreview = document.createElement('span');
+              emojiPreview.id = \`emoji-preview-\${index}\`; // Add an ID for easy access
+              emojiPreview.className = 'emoji-preview';
+              // Initial emoji preview
+              const initialTagNameForEmoji = tag.tag.replace(":", "").toLowerCase().trim();
+              if (tag.useEmoji !== false) {
+                emojiPreview.textContent = tag.emoji || (typeof getEmojiForTag === 'function' ? getEmojiForTag(initialTagNameForEmoji) : '✨');
+              }
+              emojiPreview.style.marginLeft = '10px';
+              emojiPreview.style.fontSize = '1.5em';
+              // Disable input if useEmoji is false initially
+              if(tag.useEmoji === false) {
+                emojiInput.disabled = true;
+              }
+
+
+              emojiRow.appendChild(emojiLabel);
+              emojiRow.appendChild(emojiInput);
+              emojiRow.appendChild(document.createTextNode(' ')); // For spacing
+              emojiRow.appendChild(useEmojiCheck);
+              emojiRow.appendChild(useEmojiLabel);
+              emojiRow.appendChild(emojiPreview);
+              container.appendChild(emojiRow);
+
               // Preview
               const previewContainer = document.createElement('div');
               previewContainer.className = 'tag-preview';
@@ -395,8 +465,19 @@ export class TagEditorPanel {
             if (tag.strikethrough) {
               preview.style.textDecoration += 'line-through';
             }
+
+            // Update preview with emoji
+            let previewEmojiString = "";
+            if (tag.useEmoji !== false) {
+                const currentTagName = tag.tag.replace(":", "").toLowerCase().trim();
+                previewEmojiString = tag.emoji || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
+                if (previewEmojiString) {
+                    previewEmojiString = \` \${previewEmojiString}\`;
+                }
+            }
+            preview.textContent = \`// \${tag.tag}\${previewEmojiString} This is a preview of your comment tag\`;
           }
-          
+
           // Add new tag button
           document.getElementById('add-tag').addEventListener('click', () => {
             customTags.push({
@@ -406,7 +487,9 @@ export class TagEditorPanel {
               strikethrough: false,
               underline: false,
               bold: false,
-              italic: false
+              italic: false,
+              emoji: '', // Add default emoji properties for new tags
+              useEmoji: true // Default to using emojis for new tags
             });
             renderTags();
           });
@@ -426,6 +509,31 @@ export class TagEditorPanel {
         
         function getBetterCommentTags() {
           return ${defaultTags};
+        }
+
+        // Define getEmojiForTag in the webview's scope if needed, or ensure it's passed
+        // For now, a placeholder or ensure it's defined if your extension.ts passes it.
+        // This is a simplified version for the webview context.
+        // You might need to pass the full map or a more robust solution.
+        function getEmojiForTag(tagName) {
+          const emojiMap = {
+            todo: "📋",
+            fixme: "🔧",
+            bug: "🐛",
+            hack: "⚡",
+            note: "📝",
+            idea: "💡",
+            critical: "⚠️",
+            optimize: "🚀",
+            security: "🔒",
+            deprecated: "⛔",
+            review: "👁️",
+            section: "📑",
+            performance: "⏱️",
+            api: "🔌"
+            // Add more mappings as needed from your extension.ts
+          };
+          return emojiMap[tagName] || "✨"; // Default emoji
         }
       </script>
     </body>
