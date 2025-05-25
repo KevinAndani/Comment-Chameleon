@@ -1,4 +1,7 @@
 import * as vscode from "vscode";
+import { TagEditorPanel } from "./tagEditor";
+import * as fs from "fs";
+import * as path from "path";
 
 // The Better Comments tag configuration based on your settings
 const enhancedCommentTags = [
@@ -140,6 +143,16 @@ const enhancedCommentTags = [
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Better Comments Enhanced is now active");
+  console.log("Extension path:", context.extensionPath);
+  console.log(
+    "Available commands:",
+    vscode.commands
+      .getCommands(true)
+      .then((commands) =>
+        commands.filter((cmd) => cmd.includes("better-comments"))
+      )
+      .then((commands) => console.log("Filtered commands:", commands))
+  );
 
   // Check if Better Comments is installed
   const betterCommentsExtension = vscode.extensions.getExtension(
@@ -155,25 +168,172 @@ export function activate(context: vscode.ExtensionContext) {
   // Apply enhanced comment styles when extension activates
   applyEnhancedCommentStyles();
 
+  // Generate snippets for custom tags
+  updateCustomTagSnippets(context);
+
   // Register command to manually apply styles
-  const disposable = vscode.commands.registerCommand(
+  const applyStylesCommand = vscode.commands.registerCommand(
     "better-comments-enhanced.applyStyles",
     () => {
       applyEnhancedCommentStyles();
+      // Generate snippets for custom tags
+      updateCustomTagSnippets(context);
       vscode.window.showInformationMessage(
         "Enhanced comment styles applied successfully!"
       );
     }
   );
+  // Register command to edit custom tags
+  const editTagsCommand = vscode.commands.registerCommand(
+    "better-comments-enhanced.editTags",
+    () => {
+      TagEditorPanel.createOrShow(context.extensionUri);
+    }
+  );
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(applyStylesCommand, editTagsCommand);
+
+  // Listen for configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(
+      (e: vscode.ConfigurationChangeEvent) => {
+        if (e.affectsConfiguration("betterCommentsEnhanced.customTags")) {
+          applyEnhancedCommentStyles();
+          updateCustomTagSnippets(context);
+        }
+      }
+    )
+  );
+}
+
+/**
+ * Updates snippet files with custom tags
+ */
+function updateCustomTagSnippets(context: vscode.ExtensionContext) {
+  // Get custom tags from configuration
+  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const rawCustomTags = config.get("customTags");
+  const customTags = Array.isArray(rawCustomTags) ? rawCustomTags : [];
+
+  if (customTags.length === 0) {
+    console.log("No custom tags found, skipping snippet generation");
+    return;
+  }
+
+  console.log(`Generating snippets for ${customTags.length} custom tags`);
+
+  // Generate snippets for different comment styles
+  const generalSnippets = generateGeneralSnippets(customTags);
+  const pythonSnippets = generatePythonSnippets(customTags);
+  const htmlSnippets = generateHtmlSnippets(customTags);
+
+  // Write snippets to files
+  writeSnippetsFile(context, "general-custom.code-snippets", generalSnippets);
+  writeSnippetsFile(context, "python-custom.code-snippets", pythonSnippets);
+  writeSnippetsFile(context, "html-custom.code-snippets", htmlSnippets);
+}
+
+/**
+ * Generates snippets for general languages (C-style comments)
+ */
+function generateGeneralSnippets(customTags) {
+  const snippets = {};
+
+  customTags.forEach((tag) => {
+    // Extract tag name without the colon
+    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    if (!tagName) return;
+
+    // Skip if this is just a standard comment marker like "//"
+    if (tagName === "/") return;
+
+    snippets[`Custom ${tagName}`] = {
+      prefix: tagName,
+      body: ["// ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}}$0"],
+      description: `Custom ${tagName} comment`,
+    };
+  });
+
+  return snippets;
+}
+
+/**
+ * Generates snippets for Python (# style comments)
+ */
+function generatePythonSnippets(customTags) {
+  const snippets = {};
+
+  customTags.forEach((tag) => {
+    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    if (!tagName) return;
+
+    snippets[`Custom ${tagName}`] = {
+      prefix: tagName,
+      body: ["# ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}}$0"],
+      description: `Custom ${tagName} comment`,
+    };
+  });
+
+  return snippets;
+}
+
+/**
+ * Generates snippets for HTML (<!-- --> style comments)
+ */
+function generateHtmlSnippets(customTags) {
+  const snippets = {};
+
+  customTags.forEach((tag) => {
+    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    if (!tagName) return;
+
+    snippets[`Custom ${tagName}`] = {
+      prefix: tagName,
+      body: [
+        "<!-- ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}} -->$0",
+      ],
+      description: `Custom ${tagName} comment`,
+    };
+  });
+
+  return snippets;
+}
+
+/**
+ * Writes snippet data to a file in the snippets directory
+ */
+function writeSnippetsFile(context, filename, snippets) {
+  try {
+    const snippetsDir = path.join(context.extensionPath, "snippets");
+
+    // Ensure snippets directory exists
+    if (!fs.existsSync(snippetsDir)) {
+      fs.mkdirSync(snippetsDir, { recursive: true });
+    }
+
+    const filePath = path.join(snippetsDir, filename);
+    fs.writeFileSync(filePath, JSON.stringify(snippets, null, 2), "utf8");
+    console.log(`Snippets written to ${filePath}`);
+  } catch (error) {
+    console.error(`Error writing snippets file: ${error.message}`);
+  }
 }
 
 function applyEnhancedCommentStyles() {
   const betterCommentsConfig =
     vscode.workspace.getConfiguration("better-comments");
+
+  // Get custom tags from configuration
+  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const rawCustomTags = config.get("customTags");
+  // Ensure customTags is always an array before spreading
+  const customTags = Array.isArray(rawCustomTags) ? rawCustomTags : [];
+
+  // Merge default enhanced tags with custom tags
+  const mergedTags = [...enhancedCommentTags, ...customTags];
+
   betterCommentsConfig
-    .update("tags", enhancedCommentTags, vscode.ConfigurationTarget.Global)
+    .update("tags", mergedTags, vscode.ConfigurationTarget.Global)
     .then(
       () => {
         console.log("Enhanced comment styles applied successfully");

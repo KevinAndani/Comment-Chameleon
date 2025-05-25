@@ -18,16 +18,17 @@
   "extensionDependencies": [
     "aaron-bond.better-comments"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
   "main": "./out/extension.js",
   "icon": "images/icon.png",
   "contributes": {
     "commands": [
       {
         "command": "better-comments-enhanced.applyStyles",
-        "title": "Apply Enhanced Comment Styles"
+        "title": "Better Comments Enhanced: Apply Enhanced Comment Styles"
+      },
+      {
+        "command": "better-comments-enhanced.editTags",
+        "title": "Better Comments Enhanced: Edit Custom Tags"
       }
     ],
     "snippets": [
@@ -43,8 +44,47 @@
         "language": "html,xml,svg",
         "path": "./snippets/html.code-snippets"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Better Comments Enhanced",
+      "properties": {
+        "betterCommentsEnhanced.customTags": {
+          "type": "array",
+          "default": [],
+          "description": "Custom comment tags defined by the user",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tag": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string"
+              },
+              "backgroundColor": {
+                "type": "string"
+              },
+              "strikethrough": {
+                "type": "boolean"
+              },
+              "underline": {
+                "type": "boolean"
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "italic": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
   },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
