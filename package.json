@@ -15,9 +15,6 @@
     "Formatters",
     "Snippets"
   ],
-  "extensionDependencies": [
-    "aaron-bond.better-comments"
-  ],
   "main": "./out/extension.js",
   "icon": "images/icon.png",
   "contributes": {
