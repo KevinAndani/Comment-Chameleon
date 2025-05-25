@@ -342,6 +342,49 @@ function clearAllDecorations() {
   });
 }
 
+// Define common single-line comment prefixes for more precise matching
+const SINGLE_LINE_COMMENT_PREFIXES = ["//", "#", "--"];
+
+// Define patterns for multi-line comments.
+// The regex will be constructed to find the tag shortly after the start delimiter.
+interface MultiLineCommentPattern {
+  name: string; // For debugging or future specific logic
+  startDelimiterRegex: string; // Regex for the start of the block, e.g., /\/\*/
+  endDelimiterRegex: string; // Regex for the end of the block, e.g., /\*\//
+  // If true, the tag must appear immediately after the start delimiter (and optional whitespace).
+  // If false, a more complex regex might be needed to find the tag within the block (not implemented here for simplicity).
+  tagAtStart: true;
+}
+
+const MULTI_LINE_COMMENT_PATTERNS: MultiLineCommentPattern[] = [
+  {
+    name: "c-style",
+    startDelimiterRegex: "/\\*\\s*",
+    endDelimiterRegex: "\\*\\/",
+    tagAtStart: true,
+  }, // e.g., /* TAG ... */
+  {
+    name: "html-style",
+    startDelimiterRegex: "<!--\\s*",
+    endDelimiterRegex: "-->",
+    tagAtStart: true,
+  }, // e.g., <!-- TAG ... -->
+  // NOTE: 📝 Python-style docstrings/block comments (can be tricky due to regular strings)
+  // These are simplified; robust Python parsing is harder.
+  {
+    name: "python-triple-double-quotes",
+    startDelimiterRegex: '"""\\s*',
+    endDelimiterRegex: '"""',
+    tagAtStart: true,
+  },
+  {
+    name: "python-triple-single-quotes",
+    startDelimiterRegex: "'''\\s*",
+    endDelimiterRegex: "'''",
+    tagAtStart: true,
+  },
+];
+
 function updateDecorationsForEditor(editor: vscode.TextEditor) {
   if (!editor || !editor.document) return;
 
@@ -358,61 +401,73 @@ function updateDecorationsForEditor(editor: vscode.TextEditor) {
   const decorationsMap: Map<vscode.TextEditorDecorationType, vscode.Range[]> =
     new Map();
 
-  // Regex to find potential comments and tags
-  // This is a simplified regex and might need adjustments for various languages/comment styles
-  // It looks for common single-line comment markers and then captures the tag
-  // Group 1: Comment marker (e.g., //, #, --)
-  // Group 2: The tag itself (e.g., TODO:, FIXME)
-  // Group 3: The rest of the comment
-  const commentRegex = /(\/\/|\#|--|<!--)\s*([A-Z][A-Z0-9_:]*\s?)/g;
-
   for (const tagDefinition of allTags) {
     const decorationType = getDecorationTypeForTag(tagDefinition);
-    const ranges: vscode.Range[] = [];
+    // Ensure each decoration type is initialized in the map to handle clearing previous decorations
+    if (!decorationsMap.has(decorationType)) {
+      decorationsMap.set(decorationType, []);
+    }
+    const rangesForThisTag: vscode.Range[] = [];
 
-    // Create a specific regex for the current tag to find it within lines
-    // Escape special characters in the tag for regex
     const escapedTag = tagDefinition.tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // This regex looks for common comment markers followed by the specific tag
-    // It's a basic approach and might need refinement for different comment styles (block vs line)
-    // and language specifics.
-    const tagRegex = new RegExp(
-      `(^\\s*(?:\\/\\/|#|--|<!--)\\s*)(${escapedTag})`,
+
+    // 1. Single-Line Comment Matching
+    // This regex looks for common single-line comment markers followed by the specific tag.
+    // It's refined to use specific prefixes.
+    const singleLinePrefixRegexStrings = SINGLE_LINE_COMMENT_PREFIXES.map(
+      (p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape the prefix itself
+    );
+    const singleLineTagRegex = new RegExp(
+      `(^\\s*(?:${singleLinePrefixRegexStrings.join("|")})\\s*)(${escapedTag})`,
       "gm"
     );
 
-    let match;
-    while ((match = tagRegex.exec(text)) !== null) {
-      const commentMarkerAndSpaceLength = match[1].length;
-      // Start of the actual tag (e.g., "TODO:")
+    let matchSL;
+    while ((matchSL = singleLineTagRegex.exec(text)) !== null) {
+      const commentMarkerAndSpaceLength = matchSL[1].length;
       const startPos = editor.document.positionAt(
-        match.index + commentMarkerAndSpaceLength
+        matchSL.index + commentMarkerAndSpaceLength
       );
-      // End of the actual tag
       const endPos = editor.document.positionAt(
-        match.index + commentMarkerAndSpaceLength + match[2].length
+        matchSL.index + commentMarkerAndSpaceLength + matchSL[2].length
       );
-
-      // We want to decorate the tag itself, or the whole line starting from the tag.
-      // For simplicity, let's decorate just the tag.
-      // If you want to style the whole line, adjust the range.
-      // Example: Decorate the line from the start of the tag to the end of the line.
-      // const line = editor.document.lineAt(startPos.line);
-      // const range = new vscode.Range(startPos, line.range.end);
-
-      const range = new vscode.Range(startPos, endPos);
-      ranges.push(range);
+      // For single-line, we decorate just the tag itself.
+      rangesForThisTag.push(new vscode.Range(startPos, endPos));
     }
 
-    if (ranges.length > 0) {
-      const existingRanges = decorationsMap.get(decorationType) || [];
-      decorationsMap.set(decorationType, existingRanges.concat(ranges));
-    } else {
-      // Ensure the decoration type is at least set with an empty array if no ranges found for it
-      // This helps in clearing previous decorations for this type if they existed.
-      if (!decorationsMap.has(decorationType)) {
-        decorationsMap.set(decorationType, []);
+    // 2. Multi-Line Comment Block Matching
+    for (const pattern of MULTI_LINE_COMMENT_PATTERNS) {
+      if (pattern.tagAtStart) {
+        // Construct regex: pattern.startDelimiterRegex + escapedTag + anythingUntil + pattern.endDelimiterRegex
+        // The 's' flag (dotAll) would be ideal here if universally supported in JS engines VS Code runs on,
+        // otherwise use [\s\S]*? for non-greedy multi-line content.
+        const blockRegex = new RegExp(
+          `${pattern.startDelimiterRegex}(${escapedTag})([\\s\\S]*?)${pattern.endDelimiterRegex}`,
+          "gm"
+        );
+
+        let matchML;
+        while ((matchML = blockRegex.exec(text)) !== null) {
+          const blockStartIndex = matchML.index;
+          // matchML[0] is the entire matched block, including delimiters and content.
+          const blockEndIndex = matchML.index + matchML[0].length;
+
+          const startPos = editor.document.positionAt(blockStartIndex);
+          const endPos = editor.document.positionAt(blockEndIndex);
+          // For multi-line, we decorate the entire block.
+          rangesForThisTag.push(new vscode.Range(startPos, endPos));
+        }
       }
+    }
+
+    if (rangesForThisTag.length > 0) {
+      // Add to map, potentially merging with ranges from other types of matches for the same decoration
+      // For now, simple concatenation; VS Code handles overlapping ranges for the same decoration type.
+      const existingRanges = decorationsMap.get(decorationType) || [];
+      decorationsMap.set(
+        decorationType,
+        existingRanges.concat(rangesForThisTag)
+      );
     }
   }
 
