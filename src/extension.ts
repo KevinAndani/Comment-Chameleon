@@ -234,23 +234,52 @@ function updateCustomTagSnippets(context: vscode.ExtensionContext) {
 }
 
 /**
+ * Represents a single comment tag configuration
+ */
+interface CustomTag {
+  tag: string;
+  color?: string;
+  strikethrough?: boolean;
+  underline?: boolean;
+  backgroundColor?: string;
+}
+
+/**
+ * Represents a VS Code snippet definition
+ */
+interface Snippet {
+  prefix: string;
+  scope?: string;
+  body: string[];
+  description: string;
+}
+
+/**
  * Generates snippets for general languages (C-style comments)
  */
-function generateGeneralSnippets(customTags) {
-  const snippets = {};
+function generateGeneralSnippets(
+  customTags: CustomTag[]
+): Record<string, Snippet> {
+  const snippets: Record<string, Snippet> = {};
 
   customTags.forEach((tag) => {
     // Extract tag name without the colon
     const tagName = tag.tag.replace(":", "").toLowerCase().trim();
-    if (!tagName) return;
+    if (!tagName || tagName === "/") return;
 
-    // Skip if this is just a standard comment marker like "//"
-    if (tagName === "/") return;
+    // Create a friendly name for the snippet
+    const friendlyName = `${
+      tagName.charAt(0).toUpperCase() + tagName.slice(1)
+    } Comment`;
 
-    snippets[`Custom ${tagName}`] = {
+    // Select an appropriate emoji for the tag (you can customize this mapping)
+    const emoji = getEmojiForTag(tagName);
+
+    snippets[friendlyName] = {
       prefix: tagName,
-      body: ["// ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}}$0"],
-      description: `Custom ${tagName} comment`,
+      scope: "javascript,typescript,c,cpp,csharp,java",
+      body: [`// ${tag.tag} ${emoji} $1`],
+      description: `Highlights ${tagName} comments`,
     };
   });
 
@@ -260,17 +289,25 @@ function generateGeneralSnippets(customTags) {
 /**
  * Generates snippets for Python (# style comments)
  */
-function generatePythonSnippets(customTags) {
-  const snippets = {};
+function generatePythonSnippets(
+  customTags: CustomTag[]
+): Record<string, Snippet> {
+  const snippets: Record<string, Snippet> = {};
 
   customTags.forEach((tag) => {
     const tagName = tag.tag.replace(":", "").toLowerCase().trim();
     if (!tagName) return;
 
-    snippets[`Custom ${tagName}`] = {
+    const friendlyName = `${
+      tagName.charAt(0).toUpperCase() + tagName.slice(1)
+    } Comment`;
+    const emoji = getEmojiForTag(tagName);
+
+    snippets[friendlyName] = {
       prefix: tagName,
-      body: ["# ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}}$0"],
-      description: `Custom ${tagName} comment`,
+      scope: "python",
+      body: [`# ${tag.tag} ${emoji} $1`],
+      description: `Highlights ${tagName} comments`,
     };
   });
 
@@ -280,19 +317,25 @@ function generatePythonSnippets(customTags) {
 /**
  * Generates snippets for HTML (<!-- --> style comments)
  */
-function generateHtmlSnippets(customTags) {
-  const snippets = {};
+function generateHtmlSnippets(
+  customTags: CustomTag[]
+): Record<string, Snippet> {
+  const snippets: Record<string, Snippet> = {};
 
   customTags.forEach((tag) => {
     const tagName = tag.tag.replace(":", "").toLowerCase().trim();
     if (!tagName) return;
 
-    snippets[`Custom ${tagName}`] = {
+    const friendlyName = `${
+      tagName.charAt(0).toUpperCase() + tagName.slice(1)
+    } Comment`;
+    const emoji = getEmojiForTag(tagName);
+
+    snippets[friendlyName] = {
       prefix: tagName,
-      body: [
-        "<!-- ${1:${TM_SELECTED_TEXT:${2:${tag.tag} ${3:comment}}}} -->$0",
-      ],
-      description: `Custom ${tagName} comment`,
+      scope: "html,xml,svg",
+      body: [`<!-- ${tag.tag} ${emoji} $1 -->`],
+      description: `Highlights ${tagName} comments`,
     };
   });
 
@@ -300,9 +343,42 @@ function generateHtmlSnippets(customTags) {
 }
 
 /**
+ * Returns an appropriate emoji for a given tag type
+ */
+function getEmojiForTag(tagName: string): string {
+  // Map of tag names to emojis
+  const emojiMap: Record<string, string> = {
+    todo: "📋",
+    fixme: "🔧",
+    bug: "🐛",
+    hack: "⚡",
+    note: "📝",
+    idea: "💡",
+    critical: "⚠️",
+    optimize: "🚀",
+    security: "🔒",
+    deprecated: "⛔",
+    review: "👁️",
+    section: "📑",
+    performance: "⏱️",
+    api: "🔌",
+    // Add more mappings as needed
+  };
+
+  return emojiMap[tagName] || "✨"; // Default emoji if no match
+}
+
+/**
  * Writes snippet data to a file in the snippets directory
  */
-function writeSnippetsFile(context, filename, snippets) {
+/**
+ * Writes snippet data to a file in the snippets directory
+ */
+function writeSnippetsFile(
+  context: vscode.ExtensionContext,
+  filename: string,
+  snippets: Record<string, Snippet>
+): void {
   try {
     const snippetsDir = path.join(context.extensionPath, "snippets");
 
@@ -314,7 +390,7 @@ function writeSnippetsFile(context, filename, snippets) {
     const filePath = path.join(snippetsDir, filename);
     fs.writeFileSync(filePath, JSON.stringify(snippets, null, 2), "utf8");
     console.log(`Snippets written to ${filePath}`);
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error writing snippets file: ${error.message}`);
   }
 }
