@@ -259,6 +259,30 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
+
+  // Add to your activate function
+  const checkSnippetsCommand = vscode.commands.registerCommand(
+    "comment-chameleon.checkSnippets",
+    () => {
+      const snippetsDir = path.join(context.extensionPath, "snippets");
+      const snippetFiles = fs.readdirSync(snippetsDir);
+
+      vscode.window.showInformationMessage(
+        `Found ${snippetFiles.length} snippet files: ${snippetFiles.join(", ")}`
+      );
+
+      // Try to read one snippet file to verify content
+      if (snippetFiles.includes("general-custom.code-snippets")) {
+        const content = fs.readFileSync(
+          path.join(snippetsDir, "general-custom.code-snippets"),
+          "utf8"
+        );
+        console.log("Sample snippet content:", content);
+      }
+    }
+  );
+
+  context.subscriptions.push(checkSnippetsCommand);
 }
 
 function triggerUpdateDecorations(

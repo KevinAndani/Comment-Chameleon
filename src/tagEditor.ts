@@ -75,7 +75,16 @@ export class TagEditorPanel {
     // Trigger tag update in main extension
     vscode.commands.executeCommand("commentChameleon.applyStyles");
 
-    vscode.window.showInformationMessage("Custom tags saved successfully!");
+    vscode.window
+      .showInformationMessage(
+        "Custom tags saved successfully! You must reload VS Code to use custom tag snippets.",
+        "Reload Now"
+      )
+      .then((selection) => {
+        if (selection === "Reload Now") {
+          vscode.commands.executeCommand("workbench.action.reloadWindow");
+        }
+      });
   }
 
   private _update() {
