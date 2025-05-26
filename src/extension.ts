@@ -170,6 +170,13 @@ let activeDecorationTypes: Map<string, vscode.TextEditorDecorationType> =
   new Map();
 let decorationTimeout: NodeJS.Timeout | undefined = undefined;
 
+// Helper function to get only user-defined custom tags from configuration
+function getCustomTagsFromConfig(): CustomTag[] {
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const rawCustomTags = config.get<CustomTag[]>("customTags");
+  return Array.isArray(rawCustomTags) ? rawCustomTags : [];
+}
+
 export function activate(context: vscode.ExtensionContext) {
   console.log("Comment Chameleon is now active");
   console.log(
@@ -275,7 +282,7 @@ function triggerUpdateDecorations(
 function getMergedTags(): CustomTag[] {
   const config = vscode.workspace.getConfiguration("commentChameleon");
   const rawCustomTags = config.get<CustomTag[]>("customTags");
-  const customTags = Array.isArray(rawCustomTags) ? rawCustomTags : [];
+  const customTags = getCustomTagsFromConfig();
   // Give precedence to custom tags if they redefine a predefined tag's text
   const predefinedTagsFiltered = PREDEFINED_COMMENT_TAGS.filter(
     (predefined) => !customTags.some((custom) => custom.tag === predefined.tag)
@@ -529,21 +536,24 @@ interface Snippet {
  * Updates snippet files with custom tags
  */
 function updateCustomTagSnippets(context: vscode.ExtensionContext) {
-  const mergedTags = getMergedTags(); // Use merged tags for snippets as well
+  const customTags = getCustomTagsFromConfig(); // Fetch only custom tags for snippets
 
-  if (mergedTags.length === 0) {
-    console.log("No custom tags found, skipping snippet generation");
-    // Optionally, clear existing custom snippet files
-    clearSnippetFiles(context);
+  if (customTags.length === 0) {
+    console.log(
+      "No user-defined custom tags found, clearing custom snippet files."
+    );
+    clearSnippetFiles(context); // This correctly clears only custom snippet files
     return;
   }
 
-  console.log(`Generating snippets for ${mergedTags.length} tags`);
+  console.log(
+    `Generating custom snippets for ${customTags.length} user-defined tags.`
+  );
 
   // Generate snippets for different comment styles
-  const generalSnippets = generateGeneralSnippets(mergedTags);
-  const pythonSnippets = generatePythonSnippets(mergedTags);
-  const htmlSnippets = generateHtmlSnippets(mergedTags);
+  const generalSnippets = generateGeneralSnippets(customTags);
+  const pythonSnippets = generatePythonSnippets(customTags);
+  const htmlSnippets = generateHtmlSnippets(customTags);
 
   writeSnippetsFile(context, "general-custom.code-snippets", generalSnippets);
   writeSnippetsFile(context, "python-custom.code-snippets", pythonSnippets);
@@ -574,7 +584,11 @@ function generateGeneralSnippets(
 
   customTags.forEach((tag) => {
     // Extract tag name without the colon
-    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    const tagName = tag.tag
+      .replace(":", "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "");
     if (!tagName || tagName === "/") return;
 
     // Create a friendly name for the snippet
@@ -618,7 +632,11 @@ function generatePythonSnippets(
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
-    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    const tagName = tag.tag
+      .replace(":", "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "");
     if (!tagName) return;
 
     const friendlyName = `${
@@ -661,7 +679,11 @@ function generateHtmlSnippets(
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
-    const tagName = tag.tag.replace(":", "").toLowerCase().trim();
+    const tagName = tag.tag
+      .replace(":", "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "");
     if (!tagName) return;
 
     const friendlyName = `${
