@@ -418,21 +418,41 @@ function updateDecorationsForEditor(editor: vscode.TextEditor) {
       (p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape the prefix itself
     );
     const singleLineTagRegex = new RegExp(
-      `(^\\s*(?:${singleLinePrefixRegexStrings.join("|")})\\s*)(${escapedTag})`,
+      `(\\s*(${singleLinePrefixRegexStrings.join("|")})\\s*)(${escapedTag})`,
       "gm"
     );
 
     let matchSL;
     while ((matchSL = singleLineTagRegex.exec(text)) !== null) {
-      const commentMarkerAndSpaceLength = matchSL[1].length;
-      const startPos = editor.document.positionAt(
-        matchSL.index + commentMarkerAndSpaceLength
+      // matchSL[0] is the full match, e.g., "  // NOTE:"
+      // matchSL[1] is the comment prefix part, e.g., "  // " (captured by `\\s*(${singleLinePrefixRegexStrings.join("|")})\\s*`)
+      // matchSL[2] is the comment marker itself, e.g., "//" (captured by `(${singleLinePrefixRegexStrings.join("|")})`)
+      // matchSL[3] is the tag, e.g., "NOTE:" (captured by `(${escapedTag})`)
+
+      // Calculate the offset where the highlight should begin.
+      // We want to start at the beginning of the actual comment marker (matchSL[2]).
+      // The start of matchSL[1] is at matchSL.index.
+      // The marker matchSL[2] is found within matchSL[1].
+      // So, the offset of the marker from the start of the whole match (matchSL.index)
+      // is matchSL.index + (the index of matchSL[2] within matchSL[1]).
+      const commentMarkerStartIndexInPrefix = matchSL[1].indexOf(matchSL[2]);
+      const highlightStartOffset =
+        matchSL.index + commentMarkerStartIndexInPrefix;
+
+      const highlightStartPosition =
+        editor.document.positionAt(highlightStartOffset);
+
+      // Extend the decoration to the end of the line where the tag is found.
+      const lineOfHighlight = editor.document.lineAt(
+        highlightStartPosition.line
       );
-      const endPos = editor.document.positionAt(
-        matchSL.index + commentMarkerAndSpaceLength + matchSL[2].length
-      );
-      // For single-line, we decorate just the tag itself.
-      rangesForThisTag.push(new vscode.Range(startPos, endPos));
+      const highlightEndPosition = lineOfHighlight.range.end;
+
+      if (highlightStartPosition.isBeforeOrEqual(highlightEndPosition)) {
+        rangesForThisTag.push(
+          new vscode.Range(highlightStartPosition, highlightEndPosition)
+        );
+      }
     }
 
     // 2. Multi-Line Comment Block Matching
