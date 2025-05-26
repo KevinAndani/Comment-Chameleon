@@ -536,7 +536,6 @@ function updateCustomTagSnippets(context: vscode.ExtensionContext) {
     // Optionally, clear existing custom snippet files
     clearSnippetFiles(context);
     return;
-    return;
   }
 
   console.log(`Generating snippets for ${mergedTags.length} tags`);
@@ -545,6 +544,10 @@ function updateCustomTagSnippets(context: vscode.ExtensionContext) {
   const generalSnippets = generateGeneralSnippets(mergedTags);
   const pythonSnippets = generatePythonSnippets(mergedTags);
   const htmlSnippets = generateHtmlSnippets(mergedTags);
+
+  writeSnippetsFile(context, "general-custom.code-snippets", generalSnippets);
+  writeSnippetsFile(context, "python-custom.code-snippets", pythonSnippets);
+  writeSnippetsFile(context, "html-custom.code-snippets", htmlSnippets);
 }
 
 function clearSnippetFiles(context: vscode.ExtensionContext) {

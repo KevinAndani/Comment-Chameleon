@@ -69,11 +69,11 @@ export class TagEditorPanel {
   }
 
   private async _saveTags(tags: any[]) {
-    const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+    const config = vscode.workspace.getConfiguration("commentChameleon");
     await config.update("customTags", tags, vscode.ConfigurationTarget.Global);
 
     // Trigger tag update in main extension
-    vscode.commands.executeCommand("better-comments-enhanced.applyStyles");
+    vscode.commands.executeCommand("commentChameleon.applyStyles");
 
     vscode.window.showInformationMessage("Custom tags saved successfully!");
   }
@@ -84,7 +84,7 @@ export class TagEditorPanel {
   }
 
   private _getWebviewContent() {
-    const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+    const config = vscode.workspace.getConfiguration("commentChameleon");
     const customTags = config.get("customTags") || [];
     const defaultTags = JSON.stringify(getBetterCommentTags());
 
@@ -506,9 +506,11 @@ export class TagEditorPanel {
           // Initial render
           renderTags();
         })();
-        
-        function getBetterCommentTags() {
-          return ${defaultTags};
+
+        function getCommentChameleonTags() {
+          const config = vscode.workspace.getConfiguration("commentChameleon"); // Updated to "commentChameleon"
+          const tags = config.get("tags") || [];
+          return tags;
         }
 
         // Define getEmojiForTag in the webview's scope if needed, or ensure it's passed
