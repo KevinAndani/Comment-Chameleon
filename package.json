@@ -1,8 +1,8 @@
 {
-  "name": "better-comments-enhanced-snippets",
-  "displayName": "Better Comments Enhanced Snippets",
-  "description": "Enhanced comment highlighting with emojis and more categories",
-  "version": "0.0.2",
+  "name": "comment-chameleon",
+  "displayName": "Comment Chameleon",
+  "description": "Enhance your comments with customizable tags, styles, and snippets.",
+  "version": "1.0.0",
   "publisher": "KevinAndani",
   "repository": {
     "type": "git",
@@ -20,12 +20,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "better-comments-enhanced.applyStyles",
-        "title": "Better Comments Enhanced: Apply Enhanced Comment Styles"
+        "command": "comment-chameleon.applyStyles",
+        "title": "Comment Chameleon: Apply Enhanced Comment Styles"
       },
       {
-        "command": "better-comments-enhanced.editTags",
-        "title": "Better Comments Enhanced: Edit Custom Tags"
+        "command": "comment-chameleon.editTags",
+        "title": "Comment Chameleon: Edit Custom Tags"
       }
     ],
     "snippets": [
@@ -55,14 +55,14 @@
       }
     ],
     "configuration": {
-      "title": "Better Comments Enhanced",
+      "title": "Comment Chameleon",
       "properties": {
-        "betterCommentsEnhanced.useEmojis": {
+        "commentChameleon.useEmojis": {
           "type": "boolean",
           "default": true,
           "description": "Enable or disable emojis in comment snippets globally"
         },
-        "betterCommentsEnhanced.customTags": {
+        "commentChameleon.customTags": {
           "type": "array",
           "default": [],
           "description": "Custom comment tags defined by the user",

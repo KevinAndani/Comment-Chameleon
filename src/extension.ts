@@ -171,13 +171,13 @@ let activeDecorationTypes: Map<string, vscode.TextEditorDecorationType> =
 let decorationTimeout: NodeJS.Timeout | undefined = undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("Better Comments Enhanced is now active");
+  console.log("Comment Chameleon is now active");
   console.log(
     "Available commands:",
     vscode.commands
       .getCommands(true)
       .then((commands) =>
-        commands.filter((cmd) => cmd.includes("better-comments"))
+        commands.filter((cmd) => cmd.includes("comment-chameleon"))
       )
       .then((commands) => console.log("Filtered commands:", commands))
   );
@@ -192,7 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register command to manually apply styles
   const applyStylesCommand = vscode.commands.registerCommand(
-    "better-comments-enhanced.applyStyles",
+    "comment-chameleon.applyStyles",
     () => {
       clearAllDecorations(); // Clear old decoration types
       if (vscode.window.activeTextEditor) {
@@ -200,13 +200,13 @@ export function activate(context: vscode.ExtensionContext) {
       }
       updateCustomTagSnippets(context);
       vscode.window.showInformationMessage(
-        "Comment styles refreshed successfully!"
+        "Comment Chameleon: Styles refreshed successfully!"
       );
     }
   );
   // Register command to edit custom tags
   const editTagsCommand = vscode.commands.registerCommand(
-    "better-comments-enhanced.editTags",
+    "comment-chameleon.editTags",
     () => {
       TagEditorPanel.createOrShow(context.extensionUri);
     }
@@ -219,8 +219,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration(
       (e: vscode.ConfigurationChangeEvent) => {
         if (
-          e.affectsConfiguration("betterCommentsEnhanced.customTags") ||
-          e.affectsConfiguration("betterCommentsEnhanced.useEmojis")
+          e.affectsConfiguration("commentChameleon.customTags") ||
+          e.affectsConfiguration("commentChameleon.useEmojis")
         ) {
           clearAllDecorations(); // Recreate decoration types on config change
           if (vscode.window.activeTextEditor) {
@@ -273,7 +273,7 @@ function triggerUpdateDecorations(
 }
 
 function getMergedTags(): CustomTag[] {
-  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const config = vscode.workspace.getConfiguration("commentChameleon");
   const rawCustomTags = config.get<CustomTag[]>("customTags");
   const customTags = Array.isArray(rawCustomTags) ? rawCustomTags : [];
   // Give precedence to custom tags if they redefine a predefined tag's text
@@ -566,7 +566,7 @@ function generateGeneralSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const config = vscode.workspace.getConfiguration("commentChameleon");
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
@@ -611,7 +611,7 @@ function generatePythonSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const config = vscode.workspace.getConfiguration("commentChameleon");
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
@@ -654,7 +654,7 @@ function generateHtmlSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("betterCommentsEnhanced");
+  const config = vscode.workspace.getConfiguration("commentChameleon");
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
