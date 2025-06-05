@@ -283,6 +283,34 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(checkSnippetsCommand);
+
+  context.subscriptions.push(
+    vscode.languages.registerCompletionItemProvider(
+      ["javascript", "typescript", "python", "html", "c"], // Extend as needed
+      {
+        provideCompletionItems(document, position) {
+          const line = document.lineAt(position);
+          if (!line.text.trim().startsWith("//") && !line.text.includes("/*")) {
+            return []; // Only inside comments
+          }
+
+          const config = vscode.workspace.getConfiguration("commentChameleon");
+          const customTags = config.get<CustomTag[]>("customTags") || [];
+          return customTags.map((tagObj: CustomTag): vscode.CompletionItem => {
+            const item = new vscode.CompletionItem(
+              tagObj.tag,
+              vscode.CompletionItemKind.Snippet
+            );
+            item.insertText = `${tagObj.tag}: `;
+            item.detail = "Custom Comment Tag";
+            return item;
+          });
+        },
+      },
+      "/",
+      ":" // Trigger characters
+    )
+  );
 }
 
 function triggerUpdateDecorations(
