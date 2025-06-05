@@ -215,41 +215,39 @@ export class TagEditorPanel {
         }
         
         .color-swatch {
-          width: 32px;
-          height: 32px;
+          width: 40px;
+          height: 40px;
           border-radius: 4px;
           border: 1px solid var(--border-color);
           cursor: pointer;
           position: relative;
+          transition: transform 0.1s;
         }
         
-        /* Modern color picker styles */
-        .color-slider {
-          -webkit-appearance: none;
-          height: 16px;
-          border-radius: 8px;
-          background: linear-gradient(to right, #FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF, #FF0000);
-          cursor: pointer;
-          flex-grow: 1;
+        .color-swatch:hover {
+          transform: scale(1.05);
+          box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
         }
         
-        .color-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: white;
-          box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-          cursor: pointer;
+        .color-swatch:after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, transparent 0%, transparent 45%, rgba(255,255,255,0.3) 50%, transparent 55%, transparent 100%);
+          border-radius: inherit;
+          pointer-events: none;
         }
         
         .opacity-slider {
           -webkit-appearance: none;
           height: 16px;
           border-radius: 8px;
-          background: linear-gradient(to right, transparent, currentColor);
           cursor: pointer;
           flex-grow: 1;
+          margin: 0 8px;
         }
         
         .opacity-slider::-webkit-slider-thumb {
@@ -265,13 +263,14 @@ export class TagEditorPanel {
         .color-display {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 8px;
+          margin-top: 8px;
+          background-color: var(--input-bg);
+          border-radius: 4px;
+          padding: 8px;
         }
         
         .color-value {
-          background-color: var(--input-bg);
-          border: 1px solid var(--border-color);
+          background-color: rgba(0, 0, 0, 0.2);
           border-radius: 4px;
           color: var(--text-color);
           padding: 6px 8px;
@@ -279,6 +278,11 @@ export class TagEditorPanel {
           font-family: monospace;
           min-width: 80px;
           text-align: center;
+        }
+        
+        .opacity-label {
+          font-size: 14px;
+          margin: 0 10px;
         }
         
         .checkbox-group {
@@ -414,34 +418,6 @@ export class TagEditorPanel {
             const alphaHex = Math.round(parseFloat(alpha) * 255).toString(16).padStart(2, '0');
             return \`\${hex}\${alphaHex}\`;
           }
-          
-          // Convert RGB to HSL for color manipulation
-          function rgbToHsl(r, g, b) {
-            r /= 255;
-            g /= 255;
-            b /= 255;
-            
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            let h, s, l = (max + min) / 2;
-            
-            if (max === min) {
-              h = s = 0; // achromatic
-            } else {
-              const d = max - min;
-              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-              
-              switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
-              }
-              
-              h /= 6;
-            }
-            
-            return { h: h * 360, s: s * 100, l: l * 100 };
-          }
 
           function renderTags() {
             tagsList.innerHTML = '';
@@ -462,29 +438,25 @@ export class TagEditorPanel {
                 
                 <div class="tag-row">
                   <label>Text Color:</label>
-                  <div class="color-picker">
-                    <div class="color-swatch" id="text-color-swatch-\${index}" style="background-color: \${tag.color || '#FFFFFF'}"></div>
-                    <input type="range" class="color-slider" id="text-color-hue-\${index}" min="0" max="360" step="1" value="0">
-                  </div>
                   <div class="color-display">
-                    <span class="color-value" id="text-color-value-\${index}">\${tag.color || '#FFFFFF'}</span>
+                    <div class="color-swatch" id="text-color-swatch-\${index}" style="background-color: \${tag.color || '#FFFFFF'}" title="Click to change color"></div>
+                    <span class="opacity-label">Opacity:</span>
                     <input type="range" class="opacity-slider" id="text-color-alpha-\${index}" 
                            min="0" max="1" step="0.01" value="\${textColor.alpha}" 
                            style="background: linear-gradient(to right, transparent, \${textColor.rgb})">
+                    <span class="color-value" id="text-color-value-\${index}">\${tag.color || '#FFFFFF'}</span>
                   </div>
                 </div>
                 
                 <div class="tag-row">
                   <label>Background Color:</label>
-                  <div class="color-picker">
-                    <div class="color-swatch" id="bg-color-swatch-\${index}" style="background-color: \${tag.backgroundColor || 'transparent'}"></div>
-                    <input type="range" class="color-slider" id="bg-color-hue-\${index}" min="0" max="360" step="1" value="0">
-                  </div>
                   <div class="color-display">
-                    <span class="color-value" id="bg-color-value-\${index}">\${bgColor.rgb}</span>
+                    <div class="color-swatch" id="bg-color-swatch-\${index}" style="background-color: \${tag.backgroundColor || 'transparent'}" title="Click to change color"></div>
+                    <span class="opacity-label">Opacity:</span>
                     <input type="range" class="opacity-slider" id="bg-color-alpha-\${index}" 
                            min="0" max="1" step="0.01" value="\${bgColor.alpha}" 
                            style="background: linear-gradient(to right, transparent, \${bgColor.rgb})">
+                    <span class="color-value" id="bg-color-value-\${index}">\${bgColor.rgb}</span>
                   </div>
                 </div>
                 
@@ -567,13 +539,11 @@ export class TagEditorPanel {
           function initializeColorPickers(index, tag) {
             // Text color initialization
             const textColorSwatch = document.getElementById(\`text-color-swatch-\${index}\`);
-            const textColorHue = document.getElementById(\`text-color-hue-\${index}\`);
             const textColorValue = document.getElementById(\`text-color-value-\${index}\`);
             const textColorAlpha = document.getElementById(\`text-color-alpha-\${index}\`);
             
             // Background color initialization
             const bgColorSwatch = document.getElementById(\`bg-color-swatch-\${index}\`);
-            const bgColorHue = document.getElementById(\`bg-color-hue-\${index}\`);
             const bgColorValue = document.getElementById(\`bg-color-value-\${index}\`);
             const bgColorAlpha = document.getElementById(\`bg-color-alpha-\${index}\`);
             
@@ -583,8 +553,9 @@ export class TagEditorPanel {
               input.type = 'color';
               input.value = parseHexColor(tag.color || '#FFFFFF').rgb;
               input.addEventListener('input', function() {
-                tag.color = this.value;
-                textColorSwatch.style.backgroundColor = this.value;
+                const alpha = parseFloat(textColorAlpha.value);
+                tag.color = alpha < 1 ? toHexWithAlpha(this.value, alpha) : this.value;
+                textColorSwatch.style.backgroundColor = toRgba(this.value, alpha);
                 textColorValue.textContent = this.value;
                 textColorAlpha.style.background = \`linear-gradient(to right, transparent, \${this.value})\`;
                 updatePreview(index);
@@ -632,7 +603,7 @@ export class TagEditorPanel {
             const preview = document.getElementById(\`preview-\${index}\`);
             
             // Prepare emoji if needed
-            let emojiString = "💡";
+            let emojiString = " 💡";
             if (tag.useEmoji !== false && tag.emoji) {
               emojiString = \` \${tag.emoji}\`;
             }
