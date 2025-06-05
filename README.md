@@ -36,7 +36,7 @@ You can create and customize your own tags with our visual editor:
 
    ![Comment Chameleon Tag Editor](images/Comment-Chameleon-screenshot.png)
 
-   [▶️ Watch video: How to use the Tag Editor](media/Comment-Chameleon-demo.mp4)
+   ![▶️ Watch video: How to use the Tag Editor](media/Comment-Chameleon-demo.mp4)
 
 4. Customize each tag with these options:
 
