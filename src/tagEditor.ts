@@ -11,8 +11,8 @@ function getNonce(): string {
   return text;
 }
 
+// Retrieve better-comments tags for potential integration
 function getBetterCommentTags() {
-  // Return the default tags from the extension
   const config = vscode.workspace.getConfiguration("better-comments");
   const tags = config.get("tags") || [];
   return tags;
@@ -136,42 +136,211 @@ export class TagEditorPanel {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Comment Chameleon Tag Editor</title>
       <style>
-        /* Existing styles... */
+        :root {
+          --bg-color: #2d2d2d;
+          --text-color: #e0e0e0;
+          --primary-color: #FF83A6;
+          --accent-color: #6c5ce7;
+          --border-color: #444444;
+          --input-bg: #3a3a3a;
+          --card-bg: #383838;
+          --hover-bg: #4a4a4a;
+        }
         
-        /* New styles for color with alpha */
-        .color-with-alpha {
+        body, html {
+          background-color: var(--bg-color);
+          color: var(--text-color);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          margin: 0;
+          padding: 16px;
+          line-height: 1.5;
+        }
+        
+        h1 {
+          margin-top: 0;
+          margin-bottom: 16px;
+          font-weight: 500;
+          color: var(--primary-color);
+          font-size: 24px;
+        }
+        
+        p {
+          margin-bottom: 24px;
+          opacity: 0.8;
+        }
+        
+        .tag-container {
+          background-color: var(--card-bg);
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 16px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border: 1px solid var(--border-color);
+        }
+        
+        .tag-row {
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 12px;
+        }
+        
+        .tag-row label {
+          font-size: 14px;
+          font-weight: 500;
+          margin-bottom: 6px;
+        }
+        
+        .tag-input, input[type="text"] {
+          background-color: var(--input-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          color: var(--text-color);
+          padding: 8px 10px;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s;
+          width: 100%;
+        }
+        
+        .tag-input:focus, input[type="text"]:focus {
+          border-color: var(--primary-color);
+          box-shadow: 0 0 0 2px rgba(255, 131, 166, 0.2);
+        }
+        
+        .color-picker {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
+          gap: 12px;
+          margin-bottom: 8px;
         }
-        .color-with-alpha input[type="color"] {
-          min-width: 60px;
+        
+        .color-swatch {
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          border: 1px solid var(--border-color);
+          cursor: pointer;
+          position: relative;
         }
-        .color-preview {
-          width: 30px;
-          height: 30px;
-          border: 1px solid var(--vscode-panel-border);
-          border-radius: 3px;
-        }
-        .alpha-container {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-        .alpha-container input[type="range"] {
+        
+        /* Modern color picker styles */
+        .color-slider {
+          -webkit-appearance: none;
+          height: 16px;
+          border-radius: 8px;
+          background: linear-gradient(to right, #FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF, #FF0000);
+          cursor: pointer;
           flex-grow: 1;
         }
-        .alpha-value {
-          min-width: 40px;
+        
+        .color-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+          cursor: pointer;
+        }
+        
+        .opacity-slider {
+          -webkit-appearance: none;
+          height: 16px;
+          border-radius: 8px;
+          background: linear-gradient(to right, transparent, currentColor);
+          cursor: pointer;
+          flex-grow: 1;
+        }
+        
+        .opacity-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+          cursor: pointer;
+        }
+        
+        .color-display {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        
+        .color-value {
+          background-color: var(--input-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          color: var(--text-color);
+          padding: 6px 8px;
+          font-size: 14px;
+          font-family: monospace;
+          min-width: 80px;
           text-align: center;
+        }
+        
+        .checkbox-group {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        
+        .checkbox-group label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+          accent-color: var(--primary-color);
+          width: 16px;
+          height: 16px;
+        }
+        
+        .tag-preview {
+          background-color: var(--input-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          padding: 12px;
+          margin-top: 12px;
+          margin-bottom: 12px;
+          font-family: 'Courier New', monospace;
+          white-space: pre-wrap;
+          word-break: break-all;
+        }
+        
+        button {
+          background-color: var(--accent-color);
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+          margin-right: 8px;
+        }
+        
+        button:hover {
+          background-color: #5849c2;
+        }
+        
+        .remove-tag-btn {
+          background-color: #e74c3c;
+        }
+        
+        .remove-tag-btn:hover {
+          background-color: #c0392b;
         }
       </style>
     </head>
     <body>
       <h1>Comment Chameleon Tag Editor</h1>
-      <p>Create and customize your comment tags. Background colors can include transparency.</p>
+      <p>Create and customize your comment tags with colors, formatting, and emojis.</p>
       
       <div id="tags-list"></div>
       
@@ -245,6 +414,34 @@ export class TagEditorPanel {
             const alphaHex = Math.round(parseFloat(alpha) * 255).toString(16).padStart(2, '0');
             return \`\${hex}\${alphaHex}\`;
           }
+          
+          // Convert RGB to HSL for color manipulation
+          function rgbToHsl(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            
+            if (max === min) {
+              h = s = 0; // achromatic
+            } else {
+              const d = max - min;
+              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+              
+              switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+              }
+              
+              h /= 6;
+            }
+            
+            return { h: h * 360, s: s * 100, l: l * 100 };
+          }
 
           function renderTags() {
             tagsList.innerHTML = '';
@@ -254,6 +451,7 @@ export class TagEditorPanel {
               tagEditor.className = 'tag-container';
               
               // Parse background color into components
+              const textColor = parseHexColor(tag.color || '#FFFFFF');
               const bgColor = parseHexColor(tag.backgroundColor || 'transparent');
               
               tagEditor.innerHTML = \`
@@ -263,23 +461,30 @@ export class TagEditorPanel {
                 </div>
                 
                 <div class="tag-row">
-                  <label for="color-\${index}">Text Color:</label>
-                  <input type="color" id="color-\${index}" value="\${tag.color || '#FFFFFF'}">
-                </div>
-                
-                <div class="tag-row">
-                  <label for="bg-color-\${index}">Background:</label>
-                  <div class="color-with-alpha">
-                    <input type="color" id="bg-color-\${index}" value="\${bgColor.rgb}">
-                    <div class="color-preview" id="bg-preview-\${index}" style="background-color: \${tag.backgroundColor || 'transparent'};"></div>
+                  <label>Text Color:</label>
+                  <div class="color-picker">
+                    <div class="color-swatch" id="text-color-swatch-\${index}" style="background-color: \${tag.color || '#FFFFFF'}"></div>
+                    <input type="range" class="color-slider" id="text-color-hue-\${index}" min="0" max="360" step="1" value="0">
+                  </div>
+                  <div class="color-display">
+                    <span class="color-value" id="text-color-value-\${index}">\${tag.color || '#FFFFFF'}</span>
+                    <input type="range" class="opacity-slider" id="text-color-alpha-\${index}" 
+                           min="0" max="1" step="0.01" value="\${textColor.alpha}" 
+                           style="background: linear-gradient(to right, transparent, \${textColor.rgb})">
                   </div>
                 </div>
                 
                 <div class="tag-row">
-                  <label>Transparency:</label>
-                  <div class="alpha-container">
-                    <input type="range" id="bg-alpha-\${index}" min="0" max="1" step="0.01" value="\${bgColor.alpha}">
-                    <span class="alpha-value" id="alpha-value-\${index}">\${bgColor.alpha}</span>
+                  <label>Background Color:</label>
+                  <div class="color-picker">
+                    <div class="color-swatch" id="bg-color-swatch-\${index}" style="background-color: \${tag.backgroundColor || 'transparent'}"></div>
+                    <input type="range" class="color-slider" id="bg-color-hue-\${index}" min="0" max="360" step="1" value="0">
+                  </div>
+                  <div class="color-display">
+                    <span class="color-value" id="bg-color-value-\${index}">\${bgColor.rgb}</span>
+                    <input type="range" class="opacity-slider" id="bg-color-alpha-\${index}" 
+                           min="0" max="1" step="0.01" value="\${bgColor.alpha}" 
+                           style="background: linear-gradient(to right, transparent, \${bgColor.rgb})">
                   </div>
                 </div>
                 
@@ -295,8 +500,10 @@ export class TagEditorPanel {
                 
                 <div class="tag-row">
                   <label for="emoji-\${index}">Emoji:</label>
-                  <input type="text" id="emoji-\${index}" value="\${tag.emoji || ''}" placeholder="e.g., 💡" maxlength="2">
-                  <label><input type="checkbox" id="use-emoji-\${index}" \${tag.useEmoji !== false ? 'checked' : ''}> Use Emoji</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="text" id="emoji-\${index}" value="\${tag.emoji || ''}" placeholder="e.g., 💡" maxlength="2" style="width: 60px">
+                    <label><input type="checkbox" id="use-emoji-\${index}" \${tag.useEmoji !== false ? 'checked' : ''}> Use Emoji</label>
+                  </div>
                 </div>
                 
                 <div class="tag-preview" id="preview-\${index}">
@@ -308,40 +515,14 @@ export class TagEditorPanel {
               
               tagsList.appendChild(tagEditor);
               
-              // Add event listeners
+              // Initialize color pickers and add event listeners
+              initializeColorPickers(index, tag);
+              
+              // Add other event listeners
               document.getElementById(\`tag-\${index}\`).addEventListener('input', function() {
                 tags[index].tag = this.value;
                 updatePreview(index);
               });
-              
-              document.getElementById(\`color-\${index}\`).addEventListener('input', function() {
-                tags[index].color = this.value;
-                updatePreview(index);
-              });
-              
-              const bgColorPicker = document.getElementById(\`bg-color-\${index}\`);
-              const bgAlphaSlider = document.getElementById(\`bg-alpha-\${index}\`);
-              const bgColorPreview = document.getElementById(\`bg-preview-\${index}\`);
-              const alphaValueDisplay = document.getElementById(\`alpha-value-\${index}\`);
-              
-              function updateBackgroundColor() {
-                const hexColor = bgColorPicker.value;
-                const alpha = parseFloat(bgAlphaSlider.value);
-                
-                // Update preview
-                const rgba = toRgba(hexColor, alpha);
-                bgColorPreview.style.backgroundColor = rgba;
-                
-                // Update alpha display
-                alphaValueDisplay.textContent = alpha.toFixed(2);
-                
-                // Update tag object with RGBA or hex+alpha
-                tags[index].backgroundColor = alpha === 0 ? 'transparent' : toHexWithAlpha(hexColor, alpha);
-                updatePreview(index);
-              }
-              
-              bgColorPicker.addEventListener('input', updateBackgroundColor);
-              bgAlphaSlider.addEventListener('input', updateBackgroundColor);
               
               document.getElementById(\`bold-\${index}\`).addEventListener('change', function() {
                 tags[index].bold = this.checked;
@@ -383,13 +564,75 @@ export class TagEditorPanel {
             });
           }
           
+          function initializeColorPickers(index, tag) {
+            // Text color initialization
+            const textColorSwatch = document.getElementById(\`text-color-swatch-\${index}\`);
+            const textColorHue = document.getElementById(\`text-color-hue-\${index}\`);
+            const textColorValue = document.getElementById(\`text-color-value-\${index}\`);
+            const textColorAlpha = document.getElementById(\`text-color-alpha-\${index}\`);
+            
+            // Background color initialization
+            const bgColorSwatch = document.getElementById(\`bg-color-swatch-\${index}\`);
+            const bgColorHue = document.getElementById(\`bg-color-hue-\${index}\`);
+            const bgColorValue = document.getElementById(\`bg-color-value-\${index}\`);
+            const bgColorAlpha = document.getElementById(\`bg-color-alpha-\${index}\`);
+            
+            // Color picker click handler to show color picker dialog
+            textColorSwatch.addEventListener('click', function() {
+              const input = document.createElement('input');
+              input.type = 'color';
+              input.value = parseHexColor(tag.color || '#FFFFFF').rgb;
+              input.addEventListener('input', function() {
+                tag.color = this.value;
+                textColorSwatch.style.backgroundColor = this.value;
+                textColorValue.textContent = this.value;
+                textColorAlpha.style.background = \`linear-gradient(to right, transparent, \${this.value})\`;
+                updatePreview(index);
+              });
+              input.click();
+            });
+            
+            bgColorSwatch.addEventListener('click', function() {
+              const input = document.createElement('input');
+              input.type = 'color';
+              input.value = parseHexColor(tag.backgroundColor || '#000000').rgb;
+              input.addEventListener('input', function() {
+                const alpha = parseFloat(bgColorAlpha.value);
+                tag.backgroundColor = alpha < 1 ? toHexWithAlpha(this.value, alpha) : this.value;
+                bgColorSwatch.style.backgroundColor = toRgba(this.value, alpha);
+                bgColorValue.textContent = this.value;
+                bgColorAlpha.style.background = \`linear-gradient(to right, transparent, \${this.value})\`;
+                updatePreview(index);
+              });
+              input.click();
+            });
+            
+            // Alpha slider for text color
+            textColorAlpha.addEventListener('input', function() {
+              const color = parseHexColor(tag.color || '#FFFFFF').rgb;
+              const alpha = parseFloat(this.value);
+              tag.color = alpha < 1 ? toHexWithAlpha(color, alpha) : color;
+              textColorSwatch.style.backgroundColor = toRgba(color, alpha);
+              updatePreview(index);
+            });
+            
+            // Alpha slider for background color
+            bgColorAlpha.addEventListener('input', function() {
+              const color = parseHexColor(tag.backgroundColor || '#000000').rgb;
+              const alpha = parseFloat(this.value);
+              tag.backgroundColor = alpha === 0 ? 'transparent' : toHexWithAlpha(color, alpha);
+              bgColorSwatch.style.backgroundColor = toRgba(color, alpha);
+              updatePreview(index);
+            });
+          }
+          
           // Update the preview for a specific tag
           function updatePreview(index) {
             const tag = tags[index];
             const preview = document.getElementById(\`preview-\${index}\`);
             
             // Prepare emoji if needed
-            let emojiString = "";
+            let emojiString = "💡";
             if (tag.useEmoji !== false && tag.emoji) {
               emojiString = \` \${tag.emoji}\`;
             }
@@ -432,7 +675,7 @@ export class TagEditorPanel {
           document.getElementById('save-tags').addEventListener('click', function() {
             vscode.postMessage({
               command: 'saveTags',
-              data: tags
+              tags: tags
             });
           });
             
