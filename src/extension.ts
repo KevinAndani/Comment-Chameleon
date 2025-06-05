@@ -388,6 +388,28 @@ function getDecorationTypeForTag(
   return decorationType;
 }
 
+// Helper function to get emoji for tag type with consistent formatting
+function generateSnippetBodyWithEmoji(
+  tag: CustomTag,
+  commentPrefix: string,
+  commentSuffix: string = ""
+): string[] {
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
+
+  // Determine if we should use emoji for this tag
+  const useEmoji =
+    tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+
+  // Select appropriate emoji based on user preference
+  let emojiString = "";
+  if (useEmoji && tag.emoji) {
+    emojiString = ` ${tag.emoji}`;
+  }
+
+  return [`${commentPrefix}${tag.tag}${emojiString} $1${commentSuffix}`];
+}
+
 function clearAllDecorations() {
   activeDecorationTypes.forEach((type) => type.dispose());
   activeDecorationTypes.clear();
@@ -631,8 +653,6 @@ function generateGeneralSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("commentChameleon");
-  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
     // Extract tag name without the colon
@@ -648,24 +668,10 @@ function generateGeneralSnippets(
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
 
-    // Determine if we should use emoji for this tag
-    const useEmoji =
-      tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
-
-    // Select appropriate emoji based on user preference
-    let emojiString = "";
-    if (useEmoji) {
-      // Use custom emoji if provided, otherwise fall back to mapped emoji
-      emojiString = tag.emoji || getEmojiForTag(tagName);
-      if (emojiString) {
-        emojiString = `${emojiString}`;
-      }
-    }
-
     snippets[friendlyName] = {
       prefix: tagName,
       scope: "javascript,typescript,c,cpp,csharp,java",
-      body: [`// ${tag.tag} ${emojiString} $1`],
+      body: generateSnippetBodyWithEmoji(tag, "// "),
       description: `Highlights ${tagName} comments`,
     };
   });
@@ -799,8 +805,66 @@ function getEmojiForTag(tagName: string): string {
 }
 
 /**
- * Writes snippet data to a file in the snippets directory
+ * Color utility functions
  */
+namespace ColorUtils {
+  /**
+   * Parses a hex color with optional alpha component
+   * @param hex Color in hex format (#RRGGBB or #RRGGBBAA)
+   */
+  export function parseHexWithAlpha(hex: string): {
+    hex: string;
+    alpha: number;
+  } {
+    if (!hex || hex === "transparent") {
+      return { hex: "#000000", alpha: 0 };
+    }
+
+    // Standard hex color without alpha
+    if (hex.length === 7) {
+      return { hex, alpha: 1 };
+    }
+
+    // Hex with alpha
+    if (hex.length === 9) {
+      const alpha = parseInt(hex.substring(7, 9), 16) / 255;
+      return {
+        hex: hex.substring(0, 7),
+        alpha,
+      };
+    }
+
+    // Invalid format, return as is
+    return { hex, alpha: 1 };
+  }
+
+  /**
+   * Converts hex and alpha to rgba() format
+   */
+  export function hexAlphaToRgba(hex: string, alpha: number): string {
+    if (alpha === 0) return "transparent";
+
+    // Parse the hex color
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  /**
+   * Converts hex and alpha value to #RRGGBBAA format
+   */
+  export function toHexWithAlpha(hex: string, alpha: number): string {
+    if (alpha === 0) return "transparent";
+
+    const alphaHex = Math.round(alpha * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return `${hex}${alphaHex}`;
+  }
+}
+
 /**
  * Writes snippet data to a file in the snippets directory
  */

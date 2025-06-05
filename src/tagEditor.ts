@@ -1,5 +1,35 @@
 import * as vscode from "vscode";
 
+// Utility function moved to module level
+function getNonce(): string {
+  let text = "";
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+function getBetterCommentTags() {
+  // Return the default tags from the extension
+  const config = vscode.workspace.getConfiguration("better-comments");
+  const tags = config.get("tags") || [];
+  return tags;
+}
+
+interface CustomTagForEditor {
+  tag: string;
+  color?: string;
+  backgroundColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  emoji?: string;
+  useEmoji?: boolean;
+}
+
 export class TagEditorPanel {
   public static currentPanel: TagEditorPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
@@ -94,83 +124,54 @@ export class TagEditorPanel {
 
   private _getWebviewContent() {
     const config = vscode.workspace.getConfiguration("commentChameleon");
-    const customTags = config.get("customTags") || [];
-    const defaultTags = JSON.stringify(getBetterCommentTags());
+    const customTags: CustomTagForEditor[] = (config.get("customTags") ||
+      []) as CustomTagForEditor[];
+    const nonce = getNonce();
 
     return `<!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Comment Tag Editor</title>
+      <title>Comment Chameleon Tag Editor</title>
       <style>
-        body {
-          padding: 20px;
-          font-family: var(--vscode-font-family);
-          color: var(--vscode-editor-foreground);
-        }
-        .tag-container {
-          margin-bottom: 20px;
-          padding: 15px;
-          border: 1px solid var(--vscode-panel-border);
-          border-radius: 5px;
-        }
-        .tag-row {
+        /* Existing styles... */
+        
+        /* New styles for color with alpha */
+        .color-with-alpha {
           display: flex;
           align-items: center;
+          gap: 10px;
           margin-bottom: 10px;
         }
-        .tag-row label {
-          width: 120px;
-        }
-        input, select {
-          padding: 5px;
-          margin-right: 10px;
-          background: var(--vscode-input-background);
-          color: var(--vscode-input-foreground);
-          border: 1px solid var(--vscode-input-border);
-        }
-        button {
-          padding: 8px 12px;
-          margin-right: 10px;
-          cursor: pointer;
-          background: var(--vscode-button-background);
-          color: var(--vscode-button-foreground);
-          border: none;
-          border-radius: 2px;
+        .color-with-alpha input[type="color"] {
+          min-width: 60px;
         }
         .color-preview {
-          width: 20px;
-          height: 20px;
-          margin-left: 10px;
-          border: 1px solid #ccc;
+          width: 30px;
+          height: 30px;
+          border: 1px solid var(--vscode-panel-border);
+          border-radius: 3px;
         }
-        .tag-preview {
-          margin-top: 10px;
-          padding: 10px;
-          border: 1px dashed var(--vscode-panel-border);
-        }
-        .checkbox-group {
-          display: flex;
-          gap: 10px;
-        }
-        .checkbox-group label {
+        .alpha-container {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 10px;
+          margin-bottom: 10px;
         }
-        .emoji-preview {
-          display: inline-block;
-          width: 1.2em;
-          height: 1.2em;
-          margin-left: 5px;
-          font-size: 1.2em;
+        .alpha-container input[type="range"] {
+          flex-grow: 1;
+        }
+        .alpha-value {
+          min-width: 40px;
+          text-align: center;
         }
       </style>
     </head>
     <body>
-      <h1>Comment Tag Editor</h1>
-      <p>Create and customize your comment tags below.</p>
+      <h1>Comment Chameleon Tag Editor</h1>
+      <p>Create and customize your comment tags. Background colors can include transparency.</p>
       
       <div id="tags-list"></div>
       
@@ -179,288 +180,223 @@ export class TagEditorPanel {
         <button id="save-tags">Save All Tags</button>
       </div>
 
-      <script>
+      <script nonce="${nonce}">
         (function() {
-          // Initialize with default and custom tags
-          const defaultTags = ${defaultTags};
-          let customTags = ${JSON.stringify(customTags)};
+          const vscode = acquireVsCodeApi();
+          let tags = ${JSON.stringify(customTags)};
           const tagsList = document.getElementById('tags-list');
-          
-          // Function to render tags
+
+          // Parse hex color with alpha to return separate RGB and alpha values
+          function parseHexColor(hex) {
+            if (!hex) return { rgb: '#000000', alpha: 1 };
+            
+            // Handle 'transparent' special case
+            if (hex === 'transparent') return { rgb: '#000000', alpha: 0 };
+            
+            // Standard hex color (#RRGGBB)
+            if (hex.length === 7) {
+              return { rgb: hex, alpha: 1 };
+            }
+            
+            // Hex with alpha (#RRGGBBAA)
+            if (hex.length === 9) {
+              const alpha = parseInt(hex.slice(7), 16) / 255;
+              return { 
+                rgb: hex.slice(0, 7), 
+                alpha: alpha.toFixed(2)
+              };
+            }
+            
+            // Check if it's rgba format
+            if (hex.startsWith('rgba(')) {
+              const parts = hex.match(/rgba\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\)/);
+              if (parts) {
+                const r = parseInt(parts[1]).toString(16).padStart(2, '0');
+                const g = parseInt(parts[2]).toString(16).padStart(2, '0');
+                const b = parseInt(parts[3]).toString(16).padStart(2, '0');
+                return {
+                  rgb: \`#\${r}\${g}\${b}\`,
+                  alpha: parseFloat(parts[4]).toFixed(2)
+                };
+              }
+            }
+            
+            // Fallback for unknown format
+            return { rgb: hex, alpha: 1 };
+          }
+
+          // Convert hex color and alpha to rgba format
+          function toRgba(hex, alpha) {
+            if (!hex) return 'rgba(0, 0, 0, ' + alpha + ')';
+            
+            // Parse the hex color
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            
+            return \`rgba(\${r}, \${g}, \${b}, \${alpha})\`;
+          }
+
+          // Convert hex color and alpha to #RRGGBBAA format
+          function toHexWithAlpha(hex, alpha) {
+            if (!hex) return '#00000000';
+            if (alpha == 0) return 'transparent';
+            
+            const alphaHex = Math.round(parseFloat(alpha) * 255).toString(16).padStart(2, '0');
+            return \`\${hex}\${alphaHex}\`;
+          }
+
           function renderTags() {
             tagsList.innerHTML = '';
             
-            if (customTags.length === 0) {
-              const message = document.createElement('p');
-              message.textContent = 'No custom tags yet. Click "Add New Tag" to create one.';
-              tagsList.appendChild(message);
-              return;
-            }
-            
-            customTags.forEach((tag, index) => {
-              const container = document.createElement('div');
-              container.className = 'tag-container';
+            tags.forEach((tag, index) => {
+              const tagEditor = document.createElement('div');
+              tagEditor.className = 'tag-container';
               
-              // Tag name
-              const nameRow = document.createElement('div');
-              nameRow.className = 'tag-row';
-              const nameLabel = document.createElement('label');
-              nameLabel.textContent = 'Tag Text:';
-              const nameInput = document.createElement('input');
-              nameInput.type = 'text';
-              nameInput.value = tag.tag || '';
-              nameInput.oninput = () => {
-                customTags[index].tag = nameInput.value;
+              // Parse background color into components
+              const bgColor = parseHexColor(tag.backgroundColor || 'transparent');
+              
+              tagEditor.innerHTML = \`
+                <div class="tag-row">
+                  <label for="tag-\${index}">Tag Text:</label>
+                  <input type="text" id="tag-\${index}" value="\${tag.tag || ''}" class="tag-input">
+                </div>
+                
+                <div class="tag-row">
+                  <label for="color-\${index}">Text Color:</label>
+                  <input type="color" id="color-\${index}" value="\${tag.color || '#FFFFFF'}">
+                </div>
+                
+                <div class="tag-row">
+                  <label for="bg-color-\${index}">Background:</label>
+                  <div class="color-with-alpha">
+                    <input type="color" id="bg-color-\${index}" value="\${bgColor.rgb}">
+                    <div class="color-preview" id="bg-preview-\${index}" style="background-color: \${tag.backgroundColor || 'transparent'};"></div>
+                  </div>
+                </div>
+                
+                <div class="tag-row">
+                  <label>Transparency:</label>
+                  <div class="alpha-container">
+                    <input type="range" id="bg-alpha-\${index}" min="0" max="1" step="0.01" value="\${bgColor.alpha}">
+                    <span class="alpha-value" id="alpha-value-\${index}">\${bgColor.alpha}</span>
+                  </div>
+                </div>
+                
+                <div class="tag-row">
+                  <label>Format:</label>
+                  <div class="checkbox-group">
+                    <label><input type="checkbox" id="bold-\${index}" \${tag.bold ? 'checked' : ''}> Bold</label>
+                    <label><input type="checkbox" id="italic-\${index}" \${tag.italic ? 'checked' : ''}> Italic</label>
+                    <label><input type="checkbox" id="underline-\${index}" \${tag.underline ? 'checked' : ''}> Underline</label>
+                    <label><input type="checkbox" id="strikethrough-\${index}" \${tag.strikethrough ? 'checked' : ''}> Strikethrough</label>
+                  </div>
+                </div>
+                
+                <div class="tag-row">
+                  <label for="emoji-\${index}">Emoji:</label>
+                  <input type="text" id="emoji-\${index}" value="\${tag.emoji || ''}" placeholder="e.g., 💡" maxlength="2">
+                  <label><input type="checkbox" id="use-emoji-\${index}" \${tag.useEmoji !== false ? 'checked' : ''}> Use Emoji</label>
+                </div>
+                
+                <div class="tag-preview" id="preview-\${index}">
+                  Preview will appear here
+                </div>
+                
+                <button class="remove-tag-btn" data-index="\${index}">Remove Tag</button>
+              \`;
+              
+              tagsList.appendChild(tagEditor);
+              
+              // Add event listeners
+              document.getElementById(\`tag-\${index}\`).addEventListener('input', function() {
+                tags[index].tag = this.value;
                 updatePreview(index);
-              };
-              nameRow.appendChild(nameLabel);
-              nameRow.appendChild(nameInput);
-              container.appendChild(nameRow);
+              });
               
-              // Color
-              const colorRow = document.createElement('div');
-              colorRow.className = 'tag-row';
-              const colorLabel = document.createElement('label');
-              colorLabel.textContent = 'Text Color:';
-              const colorInput = document.createElement('input');
-              colorInput.type = 'color';
-              colorInput.value = tag.color || '#ffffff';
-              colorInput.oninput = () => {
-                customTags[index].color = colorInput.value;
+              document.getElementById(\`color-\${index}\`).addEventListener('input', function() {
+                tags[index].color = this.value;
                 updatePreview(index);
-              };
-              const colorText = document.createElement('input');
-              colorText.type = 'text';
-              colorText.value = tag.color || '#ffffff';
-              colorText.oninput = () => {
-                colorInput.value = colorText.value;
-                customTags[index].color = colorText.value;
+              });
+              
+              const bgColorPicker = document.getElementById(\`bg-color-\${index}\`);
+              const bgAlphaSlider = document.getElementById(\`bg-alpha-\${index}\`);
+              const bgColorPreview = document.getElementById(\`bg-preview-\${index}\`);
+              const alphaValueDisplay = document.getElementById(\`alpha-value-\${index}\`);
+              
+              function updateBackgroundColor() {
+                const hexColor = bgColorPicker.value;
+                const alpha = parseFloat(bgAlphaSlider.value);
+                
+                // Update preview
+                const rgba = toRgba(hexColor, alpha);
+                bgColorPreview.style.backgroundColor = rgba;
+                
+                // Update alpha display
+                alphaValueDisplay.textContent = alpha.toFixed(2);
+                
+                // Update tag object with RGBA or hex+alpha
+                tags[index].backgroundColor = alpha === 0 ? 'transparent' : toHexWithAlpha(hexColor, alpha);
                 updatePreview(index);
-              };
-              colorRow.appendChild(colorLabel);
-              colorRow.appendChild(colorInput);
-              colorRow.appendChild(colorText);
-              container.appendChild(colorRow);
-              
-              // Background color
-              const bgColorRow = document.createElement('div');
-              bgColorRow.className = 'tag-row';
-              const bgColorLabel = document.createElement('label');
-              bgColorLabel.textContent = 'Background:';
-              const bgColorInput = document.createElement('input');
-              bgColorInput.type = 'color';
-              bgColorInput.value = tag.backgroundColor !== 'transparent' ? tag.backgroundColor : '#000000';
-              const bgColorText = document.createElement('input');
-              bgColorText.type = 'text';
-              bgColorText.value = tag.backgroundColor || 'transparent';
-              
-              const transparentCheck = document.createElement('input');
-              transparentCheck.type = 'checkbox';
-              transparentCheck.id = \`transparent-\${index}\`;
-              transparentCheck.checked = tag.backgroundColor === 'transparent';
-              transparentCheck.onchange = () => {
-                if (transparentCheck.checked) {
-                  customTags[index].backgroundColor = 'transparent';
-                  bgColorText.value = 'transparent';
-                  bgColorText.disabled = true;
-                  bgColorInput.disabled = true;
-                } else {
-                  customTags[index].backgroundColor = bgColorInput.value;
-                  bgColorText.value = bgColorInput.value;
-                  bgColorText.disabled = false;
-                  bgColorInput.disabled = false;
-                }
-                updatePreview(index);
-              };
-              
-              const transparentLabel = document.createElement('label');
-              transparentLabel.htmlFor = \`transparent-\${index}\`;
-              transparentLabel.textContent = 'Transparent';
-              
-              bgColorInput.oninput = () => {
-                customTags[index].backgroundColor = bgColorInput.value;
-                bgColorText.value = bgColorInput.value;
-                updatePreview(index);
-              };
-              
-              bgColorText.oninput = () => {
-                if (bgColorText.value !== 'transparent') {
-                  bgColorInput.value = bgColorText.value;
-                  customTags[index].backgroundColor = bgColorText.value;
-                  transparentCheck.checked = false;
-                } else {
-                  customTags[index].backgroundColor = 'transparent';
-                  transparentCheck.checked = true;
-                }
-                updatePreview(index);
-              };
-              
-              bgColorRow.appendChild(bgColorLabel);
-              bgColorRow.appendChild(bgColorInput);
-              bgColorRow.appendChild(bgColorText);
-              bgColorRow.appendChild(transparentCheck);
-              bgColorRow.appendChild(transparentLabel);
-              container.appendChild(bgColorRow);
-              
-              // Text formatting options
-              const formatRow = document.createElement('div');
-              formatRow.className = 'tag-row';
-              const formatLabel = document.createElement('label');
-              formatLabel.textContent = 'Format:';
-              
-              const checkboxGroup = document.createElement('div');
-              checkboxGroup.className = 'checkbox-group';
-              
-              // Bold option
-              const boldLabel = document.createElement('label');
-              const boldCheck = document.createElement('input');
-              boldCheck.type = 'checkbox';
-              boldCheck.checked = tag.bold || false;
-              boldCheck.onchange = () => {
-                customTags[index].bold = boldCheck.checked;
-                updatePreview(index);
-              };
-              boldLabel.appendChild(boldCheck);
-              boldLabel.appendChild(document.createTextNode('Bold'));
-              checkboxGroup.appendChild(boldLabel);
-              
-              // Italic option
-              const italicLabel = document.createElement('label');
-              const italicCheck = document.createElement('input');
-              italicCheck.type = 'checkbox';
-              italicCheck.checked = tag.italic || false;
-              italicCheck.onchange = () => {
-                customTags[index].italic = italicCheck.checked;
-                updatePreview(index);
-              };
-              italicLabel.appendChild(italicCheck);
-              italicLabel.appendChild(document.createTextNode('Italic'));
-              checkboxGroup.appendChild(italicLabel);
-              
-              // Underline option
-              const underlineLabel = document.createElement('label');
-              const underlineCheck = document.createElement('input');
-              underlineCheck.type = 'checkbox';
-              underlineCheck.checked = tag.underline || false;
-              underlineCheck.onchange = () => {
-                customTags[index].underline = underlineCheck.checked;
-                updatePreview(index);
-              };
-              underlineLabel.appendChild(underlineCheck);
-              underlineLabel.appendChild(document.createTextNode('Underline'));
-              checkboxGroup.appendChild(underlineLabel);
-              
-              // Strikethrough option
-              const strikeLabel = document.createElement('label');
-              const strikeCheck = document.createElement('input');
-              strikeCheck.type = 'checkbox';
-              strikeCheck.checked = tag.strikethrough || false;
-              strikeCheck.onchange = () => {
-                customTags[index].strikethrough = strikeCheck.checked;
-                updatePreview(index);
-              };
-              strikeLabel.appendChild(strikeCheck);
-              strikeLabel.appendChild(document.createTextNode('Strikethrough'));
-              checkboxGroup.appendChild(strikeLabel);
-              
-              formatRow.appendChild(formatLabel);
-              formatRow.appendChild(checkboxGroup);
-              container.appendChild(formatRow);
-
-              // Emoji settings
-              const emojiRow = document.createElement('div');
-              emojiRow.className = 'tag-row';
-              const emojiLabel = document.createElement('label');
-              emojiLabel.textContent = 'Emoji:';
-              const emojiInput = document.createElement('input');
-              emojiInput.type = 'text';
-              emojiInput.value = tag.emoji || '';
-              emojiInput.placeholder = 'Add custom emoji';
-              emojiInput.maxLength = 2; // Most emoji are 1-2 code points
-              emojiInput.oninput = () => {
-                customTags[index].emoji = emojiInput.value;
-                // Update emoji preview immediately
-                const currentTagName = customTags[index].tag.replace(":", "").toLowerCase().trim();
-                document.getElementById(\`emoji-preview-\${index}\`).textContent = emojiInput.value || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
-                updatePreview(index);
-              };
-
-              const useEmojiCheck = document.createElement('input');
-              useEmojiCheck.type = 'checkbox';
-              useEmojiCheck.id = \`use-emoji-\${index}\`;
-              useEmojiCheck.checked = tag.useEmoji !== false; // Default to true if not specified
-              useEmojiCheck.onchange = () => {
-                customTags[index].useEmoji = useEmojiCheck.checked;
-                emojiInput.disabled = !useEmojiCheck.checked;
-                const currentTagName = customTags[index].tag.replace(":", "").toLowerCase().trim();
-                const emojiPreviewSpan = document.getElementById(\`emoji-preview-\${index}\`);
-                if (!useEmojiCheck.checked) {
-                  emojiPreviewSpan.textContent = '';
-                } else {
-                  emojiPreviewSpan.textContent = emojiInput.value || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
-                }
-                updatePreview(index);
-              };
-
-              const useEmojiLabel = document.createElement('label');
-              useEmojiLabel.htmlFor = \`use-emoji-\${index}\`;
-              useEmojiLabel.textContent = 'Use emoji';
-
-              const emojiPreview = document.createElement('span');
-              emojiPreview.id = \`emoji-preview-\${index}\`; // Add an ID for easy access
-              emojiPreview.className = 'emoji-preview';
-              // Initial emoji preview
-              const initialTagNameForEmoji = tag.tag.replace(":", "").toLowerCase().trim();
-              if (tag.useEmoji !== false) {
-                emojiPreview.textContent = tag.emoji || (typeof getEmojiForTag === 'function' ? getEmojiForTag(initialTagNameForEmoji) : '✨');
               }
-              emojiPreview.style.marginLeft = '10px';
-              emojiPreview.style.fontSize = '1.5em';
-              // Disable input if useEmoji is false initially
-              if(tag.useEmoji === false) {
-                emojiInput.disabled = true;
-              }
-
-
-              emojiRow.appendChild(emojiLabel);
-              emojiRow.appendChild(emojiInput);
-              emojiRow.appendChild(document.createTextNode(' ')); // For spacing
-              emojiRow.appendChild(useEmojiCheck);
-              emojiRow.appendChild(useEmojiLabel);
-              emojiRow.appendChild(emojiPreview);
-              container.appendChild(emojiRow);
-
-              // Preview
-              const previewContainer = document.createElement('div');
-              previewContainer.className = 'tag-preview';
-              previewContainer.id = \`preview-\${index}\`;
-              container.appendChild(previewContainer);
               
-              // Delete button
-              const buttonRow = document.createElement('div');
-              buttonRow.style.marginTop = '10px';
-              const deleteBtn = document.createElement('button');
-              deleteBtn.textContent = 'Delete Tag';
-              deleteBtn.onclick = () => {
-                customTags.splice(index, 1);
+              bgColorPicker.addEventListener('input', updateBackgroundColor);
+              bgAlphaSlider.addEventListener('input', updateBackgroundColor);
+              
+              document.getElementById(\`bold-\${index}\`).addEventListener('change', function() {
+                tags[index].bold = this.checked;
+                updatePreview(index);
+              });
+              
+              document.getElementById(\`italic-\${index}\`).addEventListener('change', function() {
+                tags[index].italic = this.checked;
+                updatePreview(index);
+              });
+              
+              document.getElementById(\`underline-\${index}\`).addEventListener('change', function() {
+                tags[index].underline = this.checked;
+                updatePreview(index);
+              });
+              
+              document.getElementById(\`strikethrough-\${index}\`).addEventListener('change', function() {
+                tags[index].strikethrough = this.checked;
+                updatePreview(index);
+              });
+              
+              document.getElementById(\`emoji-\${index}\`).addEventListener('input', function() {
+                tags[index].emoji = this.value;
+                updatePreview(index);
+              });
+              
+              document.getElementById(\`use-emoji-\${index}\`).addEventListener('change', function() {
+                tags[index].useEmoji = this.checked;
+                updatePreview(index);
+              });
+              
+              document.querySelector(\`[data-index="\${index}"]\`).addEventListener('click', function() {
+                tags.splice(index, 1);
                 renderTags();
-              };
-              buttonRow.appendChild(deleteBtn);
-              container.appendChild(buttonRow);
+              });
               
-              tagsList.appendChild(container);
-              
-              // Initial preview update
+              // Initial preview
               updatePreview(index);
             });
           }
           
           // Update the preview for a specific tag
           function updatePreview(index) {
-            const tag = customTags[index];
+            const tag = tags[index];
             const preview = document.getElementById(\`preview-\${index}\`);
             
-            preview.textContent = \`// \${tag.tag} This is a preview of your comment tag\`;
+            // Prepare emoji if needed
+            let emojiString = "";
+            if (tag.useEmoji !== false && tag.emoji) {
+              emojiString = \` \${tag.emoji}\`;
+            }
+            
+            preview.textContent = \`// \${tag.tag}\${emojiString} This is a preview of your comment tag\`;
+            
+            // Apply styling
             preview.style.color = tag.color || '';
             preview.style.backgroundColor = tag.backgroundColor || 'transparent';
             preview.style.fontWeight = tag.bold ? 'bold' : 'normal';
@@ -474,78 +410,35 @@ export class TagEditorPanel {
             if (tag.strikethrough) {
               preview.style.textDecoration += 'line-through';
             }
-
-            // Update preview with emoji
-            let previewEmojiString = "";
-            if (tag.useEmoji !== false) {
-                const currentTagName = tag.tag.replace(":", "").toLowerCase().trim();
-                previewEmojiString = tag.emoji || (typeof getEmojiForTag === 'function' ? getEmojiForTag(currentTagName) : '✨');
-                if (previewEmojiString) {
-                    previewEmojiString = \` \${previewEmojiString}\`;
-                }
-            }
-            preview.textContent = \`// \${tag.tag}\${previewEmojiString} This is a preview of your comment tag\`;
           }
 
           // Add new tag button
-          document.getElementById('add-tag').addEventListener('click', () => {
-            customTags.push({
-              tag: 'NEW_TAG:',
-              color: '#ffffff',
-              backgroundColor: 'transparent',
+          document.getElementById('add-tag').addEventListener('click', function() {
+            tags.push({
+              tag: 'NEW:',
+              color: '#FFFFFF',
+              backgroundColor: '#00000080', // 50% transparent black
               strikethrough: false,
               underline: false,
               bold: false,
               italic: false,
-              emoji: '', // Add default emoji properties for new tags
-              useEmoji: true // Default to using emojis for new tags
+              emoji: '✨',
+              useEmoji: true
             });
             renderTags();
           });
-          
+            
           // Save tags button
-          document.getElementById('save-tags').addEventListener('click', () => {
-            const vscode = acquireVsCodeApi();
+          document.getElementById('save-tags').addEventListener('click', function() {
             vscode.postMessage({
               command: 'saveTags',
-              tags: customTags
+              data: tags
             });
           });
-          
+            
           // Initial render
           renderTags();
         })();
-
-        function getCommentChameleonTags() {
-          const config = vscode.workspace.getConfiguration("commentChameleon"); // Updated to "commentChameleon"
-          const tags = config.get("tags") || [];
-          return tags;
-        }
-
-        // Define getEmojiForTag in the webview's scope if needed, or ensure it's passed
-        // For now, a placeholder or ensure it's defined if your extension.ts passes it.
-        // This is a simplified version for the webview context.
-        // You might need to pass the full map or a more robust solution.
-        function getEmojiForTag(tagName) {
-          const emojiMap = {
-            todo: "📋",
-            fixme: "🔧",
-            bug: "🐛",
-            hack: "⚡",
-            note: "📝",
-            idea: "💡",
-            critical: "⚠️",
-            optimize: "🚀",
-            security: "🔒",
-            deprecated: "⛔",
-            review: "👁️",
-            section: "📑",
-            performance: "⏱️",
-            api: "🔌"
-            // Add more mappings as needed from your extension.ts
-          };
-          return emojiMap[tagName] || "✨"; // Default emoji
-        }
       </script>
     </body>
     </html>`;
@@ -564,11 +457,4 @@ export class TagEditorPanel {
       }
     }
   }
-}
-
-function getBetterCommentTags() {
-  // Return the default tags from the extension
-  const config = vscode.workspace.getConfiguration("better-comments");
-  const tags = config.get("tags") || [];
-  return tags;
 }
