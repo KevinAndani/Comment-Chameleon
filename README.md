@@ -28,15 +28,29 @@ Type any of these snippets followed by Tab:
 
 ### Custom Tags
 
-You can now create and customize your own tags:
+You can create and customize your own tags with our visual editor:
 
 1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac)
-2. Select "Edit Custom Comment Tags"
-3. Add and customize your tags with:
-   - Custom text
-   - Text color
-   - Background color
-   - Bold, italic, underline, and strikethrough formatting
+2. Type "Comment Chameleon" and select "Edit Custom Comment Tags"
+3. The Tag Editor will open with your existing tags (or sample tags for new users)
+
+   ![Comment Chameleon Tag Editor](images/Comment-Chameleon-screenshot.png)
+
+   [▶️ Watch video: How to use the Tag Editor](media/Comment-Chameleon-demo.mp4)
+
+4. Customize each tag with these options:
+
+   - **Tag Text**: The text that identifies your comment (e.g., "CRITICAL:", "TODO:")
+   - **Text Color**: Choose any color and adjust opacity for the comment text
+   - **Background Color**: Add and customize a background highlight
+   - **Format**: Apply bold, italic, underline, or strikethrough styling
+   - **Emoji**: Add a custom emoji and toggle whether it appears
+
+5. Preview your changes in real-time at the bottom of each tag editor
+6. Click "Add New Tag" to create additional custom tags
+7. When finished, click "Save All Tags" and reload when prompted
+
+Your custom tags will be immediately available as snippets and will appear styled in your code comments!
 
 ## Comment Types
 

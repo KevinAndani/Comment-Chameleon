@@ -6,7 +6,7 @@
   "publisher": "KevinAndani",
   "repository": {
     "type": "git",
-    "url": "https://github.com/KevinAndani/better-comment-tags.git"
+    "url": "https://github.com/KevinAndani/comment-chameleon.git"
   },
   "engines": {
     "vscode": "^1.98.0"
@@ -17,6 +17,18 @@
   ],
   "main": "./out/extension.js",
   "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#383838",
+    "theme": "dark"
+  },
+  "keywords": [
+    "comments",
+    "better comments",
+    "todo",
+    "highlighting",
+    "tags",
+    "emoji"
+  ],
   "contributes": {
     "commands": [
       {
