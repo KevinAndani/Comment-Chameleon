@@ -10,10 +10,6 @@ Enhances the popular Better Comments extension with emoji-based comment tags and
 - **NEW**: Custom tag creation and styling
 - **NEW**: Formatting options like bold, italic, underline, and strikethrough
 
-## Requirements
-
-This extension requires the [Better Comments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments) extension.
-
 ## Usage
 
 ### Comment Tags
