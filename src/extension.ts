@@ -290,19 +290,35 @@ export function activate(context: vscode.ExtensionContext) {
       {
         provideCompletionItems(document, position) {
           const line = document.lineAt(position);
-          if (!line.text.trim().startsWith("//") && !line.text.includes("/*")) {
-            return []; // Only inside comments
-          }
+          const trimmedText = line.text.trim();
 
+          // Get the text before the cursor
+          const textBeforeCursor = trimmedText.slice(0, position.character).toLowerCase();
+
+          // Get custom tags from configuration
           const config = vscode.workspace.getConfiguration("commentChameleon");
           const customTags = config.get<CustomTag[]>("customTags") || [];
-          return customTags.map((tagObj: CustomTag): vscode.CompletionItem => {
+
+          // Filter tags based on the text before the cursor
+          const filteredTags = customTags
+            .filter((tagObj) =>
+              tagObj.tag.toLowerCase().includes(textBeforeCursor)
+            )
+            .sort((a, b) => {
+              const aStartsWith = a.tag.toLowerCase().startsWith(textBeforeCursor);
+              const bStartsWith = b.tag.toLowerCase().startsWith(textBeforeCursor);
+              return aStartsWith === bStartsWith ? 0 : aStartsWith ? -1 : 1;
+            });
+
+          // Map filtered tags to completion items
+          return filteredTags.map((tagObj: CustomTag): vscode.CompletionItem => {
             const item = new vscode.CompletionItem(
               tagObj.tag,
               vscode.CompletionItemKind.Snippet
             );
             item.insertText = `${tagObj.tag}: `;
             item.detail = "Custom Comment Tag";
+            item.documentation = `Insert the ${tagObj.tag} tag.`;
             return item;
           });
         },
