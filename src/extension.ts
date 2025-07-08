@@ -288,7 +288,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCompletionItemProvider(
       ["javascript", "typescript", "python", "html", "c"], // Extend as needed
       {
-        provideCompletionItems(document, position) {
+        provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
           const line = document.lineAt(position);
           const trimmedText = line.text.trim();
 
@@ -299,16 +299,13 @@ export function activate(context: vscode.ExtensionContext) {
           const config = vscode.workspace.getConfiguration("commentChameleon");
           const customTags = config.get<CustomTag[]>("customTags") || [];
 
+          // Merge predefined tags with custom tags
+          const allTags = [...PREDEFINED_COMMENT_TAGS, ...customTags];
+
           // Filter tags based on the text before the cursor
-          const filteredTags = customTags
-            .filter((tagObj) =>
-              tagObj.tag.toLowerCase().includes(textBeforeCursor)
-            )
-            .sort((a, b) => {
-              const aStartsWith = a.tag.toLowerCase().startsWith(textBeforeCursor);
-              const bStartsWith = b.tag.toLowerCase().startsWith(textBeforeCursor);
-              return aStartsWith === bStartsWith ? 0 : aStartsWith ? -1 : 1;
-            });
+          const filteredTags = allTags.filter((tagObj) =>
+            tagObj.tag.toLowerCase().startsWith(textBeforeCursor)
+          );
 
           // Map filtered tags to completion items
           return filteredTags.map((tagObj: CustomTag): vscode.CompletionItem => {
@@ -316,9 +313,18 @@ export function activate(context: vscode.ExtensionContext) {
               tagObj.tag,
               vscode.CompletionItemKind.Snippet
             );
-            item.insertText = `${tagObj.tag}: `;
+
+            // Use the snippet body defined in the snippet files
+            const languageId = document.languageId; // Get the current language
+            const commentPrefix = getCommentPrefix(languageId); // Get the correct comment prefix
+            const commentSuffix = getCommentSuffix(languageId); // Get the correct comment suffix (if any)
+
+            // Generate the snippet body dynamically
+            const snippetBody = `${commentPrefix} ${tagObj.tag} ${tagObj.emoji || ""} $1 ${commentSuffix}`.trim();
+
+            item.insertText = new vscode.SnippetString(snippetBody); // Use SnippetString for dynamic placeholders
             item.detail = "Custom Comment Tag";
-            item.documentation = `Insert the ${tagObj.tag} tag.`;
+            item.documentation = `Insert the ${tagObj.tag} tag with appropriate comment syntax.`;
             return item;
           });
         },
@@ -327,6 +333,31 @@ export function activate(context: vscode.ExtensionContext) {
       ":" // Trigger characters
     )
   );
+}
+
+function getCommentPrefix(languageId: string): string {
+  const commentPrefixes: Record<string, string> = {
+    python: "#", // Python uses #
+    javascript: "//", // JavaScript uses //
+    typescript: "//", // TypeScript uses //
+    c: "//", // C uses //
+    cpp: "//", // C++ uses //
+    csharp: "//", // C# uses //
+    java: "//", // Java uses //
+    html: "<!--", // HTML uses <!-- -->
+    xml: "<!--", // XML uses <!-- -->
+    svg: "<!--", // SVG uses <!-- -->
+  };
+  return commentPrefixes[languageId] || "//"; // Default to //
+}
+
+function getCommentSuffix(languageId: string): string {
+  const commentSuffixes: Record<string, string> = {
+    html: "-->", // HTML requires a closing comment
+    xml: "-->", // XML requires a closing comment
+    svg: "-->", // SVG requires a closing comment
+  };
+  return commentSuffixes[languageId] || ""; // Default to no suffix
 }
 
 function triggerUpdateDecorations(
@@ -669,6 +700,8 @@ function generateGeneralSnippets(
   customTags: CustomTag[]
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
   customTags.forEach((tag) => {
     // Extract tag name without the colon
@@ -677,17 +710,31 @@ function generateGeneralSnippets(
       .toLowerCase()
       .trim()
       .replace(/\s+/g, "");
-    if (!tagName || tagName === "/") return;
+    if (!tagName) return;
 
     // Create a friendly name for the snippet
     const friendlyName = `${
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
 
+    // Determine if we should use emoji for this tag
+    const useEmoji =
+      tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+
+    // Select appropriate emoji based on user preference
+    let emojiString = "";
+    if (useEmoji) {
+      // Use custom emoji if provided, otherwise fall back to mapped emoji
+      emojiString = tag.emoji || getEmojiForTag(tagName);
+      if (emojiString) {
+        emojiString = `${emojiString}`;
+      }
+    }
+
     snippets[friendlyName] = {
       prefix: tagName,
       scope: "javascript,typescript,c,cpp,csharp,java",
-      body: generateSnippetBodyWithEmoji(tag, "// "),
+      body: [`// ${tag.tag} ${emojiString} $1`],
       description: `Highlights ${tagName} comments`,
     };
   });
