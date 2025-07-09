@@ -128,28 +128,28 @@ export class TagEditorPanel {
     const customTags: CustomTagForEditor[] = (config.get("customTags") ||
       []) as CustomTagForEditor[];
     const predefinedTags = [
-      { tag: "//", color: "#6272a4" },
-      { tag: "EXPLANATION:", color: "#ff70b3" },
-      { tag: "TODO:", color: "#ffc66d" },
-      { tag: "FIXME:", color: "#ff6e6e" },
-      { tag: "BUG:", color: "#f8f8f2" },
-      { tag: "HACK:", color: "#ffffa5" },
-      { tag: "NOTE:", color: "#94f0ff" },
-      { tag: "INFO:", color: "#c798e6" },
-      { tag: "IDEA:", color: "#80ffce" },
-      { tag: "DEBUG:", color: "#ff2975" },
-      { tag: "WHY:", color: "#ff9580" },
-      { tag: "WHAT THIS DO:", color: "#FBBF24" },
-      { tag: "CONTEXT:", color: "#d8ff80" },
-      { tag: "CRITICAL:", color: "#FFFFFF" },
-      { tag: "REVIEW:", color: "#A5B4FC" },
-      { tag: "OPTIMIZE:", color: "#4ADE80" },
-      { tag: "SECTION:", color: "#f1a18e" },
-      { tag: "NEXT STEP:", color: "#ba6645" },
-      { tag: "SECURITY:", color: "#cff028" },
-      { tag: "PERFORMANCE:", color: "#d7ffad" },
-      { tag: "DEPRECATED:", color: "#8b8098" },
-      { tag: "API:", color: "#c798e6" },
+      { tag: "//", color: "#6272a4", backgroundColor: "transparent", emoji: "" },
+      { tag: "EXPLANATION:", color: "#ff70b3", backgroundColor: "transparent", emoji: "💬" },
+      { tag: "TODO:", color: "#ffc66d", backgroundColor: "transparent", emoji: "📋" },
+      { tag: "FIXME:", color: "#ff6e6e", backgroundColor: "transparent", emoji: "🔧" },
+      { tag: "BUG:", color: "#f8f8f2", backgroundColor: "#bb80ff", emoji: "🐛" },
+      { tag: "HACK:", color: "#ffffa5", backgroundColor: "transparent", emoji: "⚡" },
+      { tag: "NOTE:", color: "#94f0ff", backgroundColor: "transparent", emoji: "📝" },
+      { tag: "INFO:", color: "#c798e6", backgroundColor: "transparent", emoji: "ℹ️" },
+      { tag: "IDEA:", color: "#80ffce", backgroundColor: "transparent", emoji: "💡" },
+      { tag: "DEBUG:", color: "#ff2975", backgroundColor: "transparent", emoji: "🐞" },
+      { tag: "WHY:", color: "#ff9580", backgroundColor: "transparent", emoji: "❓" },
+      { tag: "WHAT THIS DO:", color: "#FBBF24", backgroundColor: "transparent", emoji: "🤔" },
+      { tag: "CONTEXT:", color: "#d8ff80", backgroundColor: "transparent", emoji: "🌐" },
+      { tag: "CRITICAL:", color: "#FFFFFF", backgroundColor: "#9F1239", emoji: "⚠️" },
+      { tag: "REVIEW:", color: "#A5B4FC", backgroundColor: "transparent", emoji: "👁️" },
+      { tag: "OPTIMIZE:", color: "#4ADE80", backgroundColor: "transparent", emoji: "🚀" },
+      { tag: "SECTION:", color: "#f1a18e", backgroundColor: "transparent", emoji: "📑" },
+      { tag: "NEXT STEP:", color: "#ba6645", backgroundColor: "transparent", emoji: "➡️" },
+      { tag: "SECURITY:", color: "#cff028", backgroundColor: "#44475a", emoji: "🔒" },
+      { tag: "PERFORMANCE:", color: "#d7ffad", backgroundColor: "transparent", emoji: "⏱️" },
+      { tag: "DEPRECATED:", color: "#8b8098", backgroundColor: "#44475a", emoji: "⛔" },
+      { tag: "API:", color: "#c798e6", backgroundColor: "transparent", emoji: "🔌" },
     ];
 
     const nonce = getNonce();
@@ -457,10 +457,28 @@ export class TagEditorPanel {
                 .map(
                   (predefined, index) => `
                     <tr>
-                      <td style="color: ${predefined.color}">${predefined.tag}</td>
-                      <td style="color: ${customTags[index]?.color || "#000"}">${
-                    customTags[index]?.tag || ""
-                  }</td>
+                      <td>
+                        <span style="background-color: ${predefined.backgroundColor || '#fff'}; color: ${predefined.color || '#000'}; padding: 2px 4px; border-radius: 3px;">
+                          ${predefined.emoji || ''} ${predefined.tag}
+                        </span>
+                      </td>
+                      <td>Custom</td>
+                      <td>${predefined.backgroundColor || '#fff'}</td>
+                    </tr>
+                  `
+                )
+                .join("")}
+              ${customTags
+                .map(
+                  (tag) => `
+                    <tr>
+                      <td>
+                        <span style="background-color: ${tag.backgroundColor || '#fff'}; color: ${tag.color || '#000'}; padding: 2px 4px; border-radius: 3px;">
+                          ${tag.emoji || ''} ${tag.tag}
+                        </span>
+                      </td>
+                      <td>Custom</td>
+                      <td>${tag.backgroundColor || '#fff'}</td>
                     </tr>
                   `
                 )
