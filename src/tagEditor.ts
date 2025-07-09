@@ -159,9 +159,8 @@ export class TagEditorPanel {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Comment Chameleon Tag Editor</title>
+        <title>Comment Tag Editor</title>
         <style>
           :root {
             --bg-color: #2d2d2d;
@@ -179,7 +178,7 @@ export class TagEditorPanel {
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             margin: 0;
-            padding: 16px;
+            padding: 0;
             line-height: 1.5;
           }
           
@@ -194,6 +193,44 @@ export class TagEditorPanel {
           p {
             margin-bottom: 24px;
             opacity: 0.8;
+          }
+          
+          .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 16px;
+          }
+          
+          .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            background-color: var(--card-bg);
+            transition: background-color 0.2s;
+          }
+          
+          .tab:hover {
+            background-color: var(--hover-bg);
+          }
+          
+          .tab.active {
+            background-color: var(--bg-color);
+            font-weight: 500;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+          }
+          
+          .tab-content {
+            display: none;
+            padding: 20px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+          }
+          
+          .tab-content.active {
+            display: block;
           }
           
           .tag-container {
@@ -391,39 +428,46 @@ export class TagEditorPanel {
         </style>
       </head>
       <body>
-        <h1>Comment Chameleon Tag Editor</h1>
-        <p>Create and customize your comment tags with colors, formatting, and emojis.</p>
-        
-        <div id="tags-list"></div>
-        
-        <div style="margin-top: 20px;">
-          <button id="add-tag">Add New Tag</button>
-          <button id="save-tags">Save All Tags</button>
+        <div class="tabs">
+          <div class="tab active" data-tab="custom-tags">Custom Tags</div>
+          <div class="tab" data-tab="predefined-vs-custom">Predefined vs Custom Tags</div>
         </div>
-
-        <h2>Predefined and Custom Tags</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Predefined Tags</th>
-              <th>Custom Tags</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${predefinedTags
-              .map(
-                (predefined, index) => `
-                  <tr>
-                    <td style="color: ${predefined.color}">${predefined.tag}</td>
-                    <td style="color: ${customTags[index]?.color || "#000"}">${
+        <div class="tab-content active" id="custom-tags">
+          <h2>Custom Tags</h2>
+          <p>Add or edit your custom tags here.</p>
+          
+          <div id="tags-list"></div>
+          
+          <div style="margin-top: 20px;">
+            <button id="add-tag">Add New Tag</button>
+            <button id="save-tags">Save All Tags</button>
+          </div>
+        </div>
+        <div class="tab-content" id="predefined-vs-custom">
+          <h2>Predefined vs Custom Tags</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Predefined Tags</th>
+                <th>Custom Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${predefinedTags
+                .map(
+                  (predefined, index) => `
+                    <tr>
+                      <td style="color: ${predefined.color}">${predefined.tag}</td>
+                      <td style="color: ${customTags[index]?.color || "#000"}">${
                     customTags[index]?.tag || ""
                   }</td>
-                  </tr>
-                `
-              )
-              .join("")}
-          </tbody>
-        </table>
+                    </tr>
+                  `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
 
         <script nonce="${nonce}">
           (function() {
@@ -725,6 +769,25 @@ export class TagEditorPanel {
             // Initial render
             renderTags();
           })();
+        </script>
+        <script nonce="${nonce}">
+          document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+              tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+
+                // Add active class to the clicked tab and corresponding content
+                tab.classList.add('active');
+                const targetId = tab.getAttribute('data-tab');
+                document.getElementById(targetId).classList.add('active');
+              });
+            });
+          });
         </script>
       </body>
       </html>`;
