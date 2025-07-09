@@ -9,6 +9,7 @@ Enhances the popular Better Comments extension with emoji-based comment tags and
 - Works with JavaScript, TypeScript, Python, HTML, and more
 - **NEW**: Custom tag creation and styling
 - **NEW**: Formatting options like bold, italic, underline, and strikethrough
+- **NEW**: Dynamically switch between single-line and multi-line comment styles based on user preferences
 
 ## Usage
 
@@ -48,6 +49,27 @@ You can create and customize your own tags with our visual editor:
 
 Your custom tags will be immediately available as snippets and will appear styled in your code comments!
 
+### Configuring Comment Style Preferences
+
+You can configure your preferred comment style (single-line or multi-line) for each language:
+
+1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac)
+2. Type "Preferences: Open Settings (JSON)"
+3. Add or update the `commentChameleon.commentStylePreferences` setting:
+
+   ```json
+   "commentChameleon.commentStylePreferences": {
+       "javascript": "single-line",
+       "python": "multi-line",
+       "html": "multi-line"
+   }
+   ```
+
+   - Supported values: `"single-line"` or `"multi-line"`
+   - Specify preferences for each language you use.
+
+4. Save the settings file. The extension will automatically apply the correct comment style when inserting snippets.
+
 ## Comment Types
 
 | Type                           | Description               |
@@ -67,6 +89,9 @@ If you need to manually apply the enhanced styles, use the command:
 
 To edit your custom tags:
 `Better Comments Enhanced: Edit Custom Comment Tags`
+
+To configure comment style preferences:
+`Better Comments Enhanced: Configure Comment Style Preferences`
 
 ## Emoji Support
 
