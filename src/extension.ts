@@ -340,15 +340,10 @@ export function activate(context: vscode.ExtensionContext) {
               vscode.CompletionItemKind.Snippet
             );
 
-            // Use the snippet body defined in the snippet files
-            const languageId = document.languageId; // Get the current language
-            const commentPrefix = getCommentPrefix(languageId); // Get the correct comment prefix
-            const commentSuffix = getCommentSuffix(languageId); // Get the correct comment suffix (if any)
+            // Dynamically fetch the snippet body based on user preference
+            const snippetBody = provideDynamicSnippetBody(tagObj, document.languageId);
 
-            // Generate the snippet body dynamically
-            const snippetBody = `${commentPrefix} ${tagObj.tag} ${tagObj.emoji || ""} $1 ${commentSuffix}`.trim();
-
-            item.insertText = new vscode.SnippetString(snippetBody); // Use SnippetString for dynamic placeholders
+            item.insertText = new vscode.SnippetString(snippetBody.join("\n")); // Use SnippetString for dynamic placeholders
             item.detail = "Custom Comment Tag";
             item.documentation = `Insert the ${tagObj.tag} tag with appropriate comment syntax.`;
             return item;
@@ -1051,5 +1046,24 @@ export function deactivate() {
   clearAllDecorations();
   if (decorationTimeout) {
     clearTimeout(decorationTimeout);
+  }
+}
+
+function getUserPreferredCommentStyle(languageId: string): "single-line" | "multi-line" {
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const preferences = config.get<Record<string, "single-line" | "multi-line">>("commentStylePreferences", {});
+  return preferences[languageId] || "single-line"; // Default to single-line if not specified
+}
+
+// Update the provideDynamicSnippetBody function to always fetch the latest user preference
+function provideDynamicSnippetBody(tag: CustomTag, languageId: string): string[] {
+  const commentStyle = getUserPreferredCommentStyle(languageId); // Fetch the latest preference
+  const commentPrefix = getCommentPrefix(languageId);
+  const commentSuffix = getCommentSuffix(languageId);
+
+  if (commentStyle === "single-line") {
+    return [`${commentPrefix} ${tag.tag} $1`];
+  } else {
+    return [`${commentPrefix} ${tag.tag} $1 ${commentSuffix}`];
   }
 }

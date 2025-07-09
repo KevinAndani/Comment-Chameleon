@@ -114,6 +114,19 @@
               }
             }
           }
+        },
+        "commentChameleon.commentStylePreferences": {
+          "type": "object",
+          "default": {},
+          "description": "Configure the preferred comment style (single-line or multi-line) for each language.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "single-line",
+              "multi-line"
+            ],
+            "description": "Preferred comment style for the language."
+          }
         }
       }
     }
