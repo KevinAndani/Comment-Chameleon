@@ -713,40 +713,83 @@ function updateCustomTagSnippets(context: vscode.ExtensionContext) {
     `Generating custom snippets for ${customTags.length} user-defined tags.`
   );
 
-  // Generate snippets for different comment styles
-  const generalSnippets = generateGeneralSnippets(customTags);
-  const pythonSnippets = generatePythonSnippets(customTags);
-  const htmlSnippets = generateHtmlSnippets(customTags);
+  // Generate snippets for each language separately
+  const languageSnippetGenerators: Record<string, (tags: CustomTag[], type: "single-line" | "multi-line") => Record<string, Snippet>> = {
+    javascript: generateGeneralSnippets,
+    typescript: generateGeneralSnippets,
+    c: generateGeneralSnippets,
+    cpp: generateGeneralSnippets,
+    csharp: generateGeneralSnippets,
+    java: generateGeneralSnippets,
+    python: generatePythonSnippets,
+    html: generateHtmlSnippets,
+    xml: generateHtmlSnippets,
+    svg: generateHtmlSnippets,
+  };
 
-  writeSnippetsFile(context, "general-custom.code-snippets", generalSnippets);
-  writeSnippetsFile(context, "python-custom.code-snippets", pythonSnippets);
-  writeSnippetsFile(context, "html-custom.code-snippets", htmlSnippets);
+  for (const [language, generator] of Object.entries(languageSnippetGenerators)) {
+    const languageDir = path.join(context.extensionPath, "snippets", language);
+
+    // Ensure the language-specific directory exists
+    if (!fs.existsSync(languageDir)) {
+      fs.mkdirSync(languageDir, { recursive: true });
+    }
+
+    // Generate predefined single-line snippets
+    const singleLinePredefinedSnippets = generator(PREDEFINED_COMMENT_TAGS, "single-line");
+    writeSnippetsFile(context, path.join(language, `single-line-${language}.code-snippets`), singleLinePredefinedSnippets);
+
+    // Generate predefined multi-line snippets
+    const multiLinePredefinedSnippets = generator(PREDEFINED_COMMENT_TAGS, "multi-line");
+    writeSnippetsFile(context, path.join(language, `multi-line-${language}.code-snippets`), multiLinePredefinedSnippets);
+
+    // Generate custom single-line snippets
+    const singleLineCustomSnippets = generator(customTags, "single-line");
+    writeSnippetsFile(context, path.join(language, `single-line-${language}-custom.code-snippets`), singleLineCustomSnippets);
+
+    // Generate custom multi-line snippets
+    const multiLineCustomSnippets = generator(customTags, "multi-line");
+    writeSnippetsFile(context, path.join(language, `multi-line-${language}-custom.code-snippets`), multiLineCustomSnippets);
+  }
 }
 
 function clearSnippetFiles(context: vscode.ExtensionContext) {
   const snippetsDir = path.join(context.extensionPath, "snippets");
-  const generalPath = path.join(snippetsDir, "general-custom.code-snippets");
-  const pythonPath = path.join(snippetsDir, "python-custom.code-snippets");
-  const htmlPath = path.join(snippetsDir, "html-custom.code-snippets");
 
-  if (fs.existsSync(generalPath)) fs.unlinkSync(generalPath);
-  if (fs.existsSync(pythonPath)) fs.unlinkSync(pythonPath);
-  if (fs.existsSync(htmlPath)) fs.unlinkSync(htmlPath);
+  // Remove all custom snippet files for supported languages
+  const supportedLanguages = [
+    "javascript",
+    "typescript",
+    "c",
+    "cpp",
+    "csharp",
+    "java",
+    "python",
+    "html",
+    "xml",
+    "svg",
+  ];
+
+  for (const language of supportedLanguages) {
+    const languageDir = path.join(snippetsDir, language);
+
+    if (fs.existsSync(languageDir)) {
+      fs.rmSync(languageDir, { recursive: true, force: true });
+    }
+  }
+
   console.log("Cleared custom snippet files.");
 }
 
-/**
- * Generates snippets for general languages (C-style comments)
- */
 function generateGeneralSnippets(
-  customTags: CustomTag[]
+  tags: CustomTag[],
+  type: "single-line" | "multi-line"
 ): Record<string, Snippet> {
   const snippets: Record<string, Snippet> = {};
   const config = vscode.workspace.getConfiguration("commentChameleon");
   const globalEmojiSetting = config.get<boolean>("useEmojis", true);
 
-  customTags.forEach((tag) => {
-    // Extract tag name without the colon
+  tags.forEach((tag) => {
     const tagName = tag.tag
       .replace(":", "")
       .toLowerCase()
@@ -754,31 +797,36 @@ function generateGeneralSnippets(
       .replace(/\s+/g, "");
     if (!tagName) return;
 
-    // Create a friendly name for the snippet
     const friendlyName = `${
       tagName.charAt(0).toUpperCase() + tagName.slice(1)
     } Comment`;
 
-    // Determine if we should use emoji for this tag
     const useEmoji =
       tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
 
-    // Select appropriate emoji based on user preference
     let emojiString = "";
     if (useEmoji) {
-      // Use custom emoji if provided, otherwise fall back to mapped emoji
       emojiString = tag.emoji || getEmojiForTag(tagName);
       if (emojiString) {
         emojiString = `${emojiString}`;
       }
     }
 
-    snippets[friendlyName] = {
-      prefix: tagName,
-      scope: "javascript,typescript,c,cpp,csharp,java",
-      body: [`// ${tag.tag} ${emojiString} $1`],
-      description: `Highlights ${tagName} comments`,
-    };
+    if (type === "single-line") {
+      snippets[friendlyName] = {
+        prefix: tagName,
+        scope: "javascript,typescript,c,cpp,csharp,java",
+        body: [`// ${tag.tag} ${emojiString} $1`],
+        description: `Highlights ${tagName} comments`,
+      };
+    } else if (type === "multi-line") {
+      snippets[friendlyName] = {
+        prefix: tagName,
+        scope: "javascript,typescript,c,cpp,csharp,java",
+        body: [`/* ${tag.tag} ${emojiString} $1 */`],
+        description: `Highlights ${tagName} comments`,
+      };
+    }
   });
 
   return snippets;
