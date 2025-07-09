@@ -38,6 +38,10 @@
       {
         "command": "comment-chameleon.editTags",
         "title": "Comment Chameleon: Edit Custom Tags"
+      },
+      {
+        "command": "comment-chameleon.editLanguages",
+        "title": "Comment Chameleon: Edit Custom Languages"
       }
     ],
     "snippets": [

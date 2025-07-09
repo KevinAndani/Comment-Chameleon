@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { TagEditorPanel } from "./tagEditor";
+import { LanguageEditorPanel } from "./tagEditor"; // Corrected import
 import * as fs from "fs";
 import * as path from "path";
 
@@ -177,6 +178,20 @@ function getCustomTagsFromConfig(): CustomTag[] {
   return Array.isArray(rawCustomTags) ? rawCustomTags : [];
 }
 
+// Export UserDefinedLanguage and getUserDefinedLanguages
+export interface UserDefinedLanguage {
+  languageName: string;
+  singleLinePrefix: string;
+  multiLinePrefix: string;
+  multiLineSuffix: string;
+}
+
+export function getUserDefinedLanguages(): UserDefinedLanguage[] {
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const languages = config.get<UserDefinedLanguage[]>("userDefinedLanguages");
+  return Array.isArray(languages) ? languages : [];
+}
+
 export function activate(context: vscode.ExtensionContext) {
   console.log("Comment Chameleon is now active");
   console.log(
@@ -218,8 +233,19 @@ export function activate(context: vscode.ExtensionContext) {
       TagEditorPanel.createOrShow(context.extensionUri);
     }
   );
+  // Register command to edit custom languages
+  const editLanguagesCommand = vscode.commands.registerCommand(
+    "comment-chameleon.editLanguages",
+    () => {
+      LanguageEditorPanel.createOrShow(context.extensionUri);
+    }
+  );
 
-  context.subscriptions.push(applyStylesCommand, editTagsCommand);
+  context.subscriptions.push(
+    applyStylesCommand,
+    editTagsCommand,
+    editLanguagesCommand
+  );
 
   // Listen for configuration changes
   context.subscriptions.push(
@@ -336,6 +362,14 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function getCommentPrefix(languageId: string): string {
+  const userLanguages = getUserDefinedLanguages();
+  const userLanguage = userLanguages.find(
+    (lang) => lang.languageName.toLowerCase() === languageId.toLowerCase()
+  );
+  if (userLanguage) {
+    return userLanguage.singleLinePrefix;
+  }
+
   const commentPrefixes: Record<string, string> = {
     python: "#", // Python uses #
     javascript: "//", // JavaScript uses //
@@ -352,6 +386,14 @@ function getCommentPrefix(languageId: string): string {
 }
 
 function getCommentSuffix(languageId: string): string {
+  const userLanguages = getUserDefinedLanguages();
+  const userLanguage = userLanguages.find(
+    (lang) => lang.languageName.toLowerCase() === languageId.toLowerCase()
+  );
+  if (userLanguage) {
+    return userLanguage.multiLineSuffix;
+  }
+
   const commentSuffixes: Record<string, string> = {
     html: "-->", // HTML requires a closing comment
     xml: "-->", // XML requires a closing comment
