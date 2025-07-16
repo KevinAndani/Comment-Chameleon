@@ -310,16 +310,30 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(checkSnippetsCommand);
 
+  // IMPROVED: Enhanced completion provider for comment tags
+  // This provider now works in multiple contexts:
+  // 1. After existing code (e.g., printf("hello"); // NOTE:)
+  // 2. At the beginning of new lines (e.g., // TODO:)
+  // 3. Within existing comments (e.g., // FIXME: issue here)
+  // 4. After various trigger characters and patterns
   context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider(
-      ["javascript", "typescript", "python", "html", "c"], // Extend as needed
+      ["javascript", "typescript", "python", "html", "c", "cpp", "csharp", "java", "xml", "svg"], // Extended language support
       {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
           const line = document.lineAt(position);
-          const trimmedText = line.text.trim();
+          const lineText = line.text;
+          const languageId = document.languageId;
 
-          // Get the text before the cursor
-          const textBeforeCursor = trimmedText.slice(0, position.character).toLowerCase();
+          // Get the text before the cursor position
+          const textBeforeCursor = lineText.substring(0, position.character);
+          
+          // Check if we're in a context where comment tags should be suggested
+          const commentContext = analyzeCommentContext(textBeforeCursor, languageId);
+          
+          if (!commentContext.shouldSuggest) {
+            return []; // No suggestions if not in comment context
+          }
 
           // Get custom tags from configuration
           const config = vscode.workspace.getConfiguration("commentChameleon");
@@ -328,9 +342,10 @@ export function activate(context: vscode.ExtensionContext) {
           // Merge predefined tags with custom tags
           const allTags = [...PREDEFINED_COMMENT_TAGS, ...customTags];
 
-          // Filter tags based on the text before the cursor
+          // Filter tags based on partial input after comment prefix
+          const partialTag = commentContext.partialTag.toLowerCase();
           const filteredTags = allTags.filter((tagObj) =>
-            tagObj.tag.toLowerCase().startsWith(textBeforeCursor)
+            tagObj.tag.toLowerCase().includes(partialTag) || partialTag === ""
           );
 
           // Map filtered tags to completion items
@@ -340,23 +355,42 @@ export function activate(context: vscode.ExtensionContext) {
               vscode.CompletionItemKind.Snippet
             );
 
-            // Use the snippet body defined in the snippet files
-            const languageId = document.languageId; // Get the current language
-            const commentPrefix = getCommentPrefix(languageId); // Get the correct comment prefix
-            const commentSuffix = getCommentSuffix(languageId); // Get the correct comment suffix (if any)
+            // Generate appropriate snippet based on context
+            let snippetBody: string;
+            
+            if (commentContext.isNewComment) {
+              // Starting a new comment
+              const commentPrefix = getCommentPrefix(languageId);
+              const commentSuffix = getCommentSuffix(languageId);
+              const emojiPart = shouldUseEmoji(tagObj) ? ` ${tagObj.emoji || ""}` : "";
+              snippetBody = `${commentPrefix} ${tagObj.tag}${emojiPart} $1${commentSuffix}`;
+            } else {
+              // Continuing within existing comment
+              const emojiPart = shouldUseEmoji(tagObj) ? ` ${tagObj.emoji || ""}` : "";
+              snippetBody = `${tagObj.tag}${emojiPart} $1`;
+            }
 
-            // Generate the snippet body dynamically
-            const snippetBody = `${commentPrefix} ${tagObj.tag} ${tagObj.emoji || ""} $1 ${commentSuffix}`.trim();
-
-            item.insertText = new vscode.SnippetString(snippetBody); // Use SnippetString for dynamic placeholders
-            item.detail = "Custom Comment Tag";
-            item.documentation = `Insert the ${tagObj.tag} tag with appropriate comment syntax.`;
+            item.insertText = new vscode.SnippetString(snippetBody);
+            item.detail = "Comment Chameleon Tag";
+            item.documentation = `Insert the ${tagObj.tag} tag${tagObj.emoji ? ` ${tagObj.emoji}` : ""}`;
+            
+            // Add sorting priority to show more relevant matches first
+            if (tagObj.tag.toLowerCase().startsWith(partialTag)) {
+              item.sortText = `0_${tagObj.tag}`; // Higher priority for prefix matches
+            } else {
+              item.sortText = `1_${tagObj.tag}`; // Lower priority for contains matches
+            }
+            
             return item;
           });
         },
       },
-      "/",
-      ":" // Trigger characters
+      "//", // Trigger on slash (for // comments)
+      "#", // Trigger on hash (for # comments)
+      "<", // Trigger on less-than (for <!-- comments)
+      "*", // Trigger on asterisk (for /* comments)
+      ":", // Trigger on colon (after tag names)
+      " "  // Trigger on space (after comment prefixes)
     )
   );
 }
@@ -400,6 +434,108 @@ function getCommentSuffix(languageId: string): string {
     svg: "-->", // SVG requires a closing comment
   };
   return commentSuffixes[languageId] || ""; // Default to no suffix
+}
+
+// Interface for comment context analysis
+interface CommentContext {
+  shouldSuggest: boolean;
+  isNewComment: boolean;
+  partialTag: string;
+  commentPrefix?: string;
+}
+
+// Analyze the text before cursor to determine if we should suggest comment tags
+function analyzeCommentContext(textBeforeCursor: string, languageId: string): CommentContext {
+  const commentPrefix = getCommentPrefix(languageId);
+  
+  // Pattern to match various comment scenarios
+  const patterns = {
+    // Single line comments: //, #, --
+    singleLine: new RegExp(`(${escapeRegex(commentPrefix)})\\s*([A-Z_]*)$`, 'i'),
+    // Multi-line comments: /*, <!--
+    multiLineStart: new RegExp(`(/\\*|<!--)\\s*([A-Z_]*)$`, 'i'),
+    // Within existing comment (text ends with comment-like pattern)
+    withinComment: new RegExp(`(${escapeRegex(commentPrefix)}|/\\*|<!--)\\s+.*?\\s*([A-Z_]*)$`, 'i'),
+    // After semicolon or closing brace (common places to add inline comments)
+    afterCode: new RegExp(`[;})]\\s*([A-Z_]*)$`, 'i'),
+  };
+
+  // Check for single line comment pattern
+  const singleLineMatch = textBeforeCursor.match(patterns.singleLine);
+  if (singleLineMatch) {
+    return {
+      shouldSuggest: true,
+      isNewComment: false,
+      partialTag: singleLineMatch[2] || "",
+      commentPrefix: commentPrefix
+    };
+  }
+
+  // Check for multi-line comment start
+  const multiLineMatch = textBeforeCursor.match(patterns.multiLineStart);
+  if (multiLineMatch) {
+    return {
+      shouldSuggest: true,
+      isNewComment: false,
+      partialTag: multiLineMatch[2] || "",
+      commentPrefix: multiLineMatch[1]
+    };
+  }
+
+  // Check within existing comment
+  const withinCommentMatch = textBeforeCursor.match(patterns.withinComment);
+  if (withinCommentMatch) {
+    return {
+      shouldSuggest: true,
+      isNewComment: false,
+      partialTag: withinCommentMatch[2] || "",
+      commentPrefix: withinCommentMatch[1]
+    };
+  }
+
+  // Check after code (like after semicolon) - suggest new comment
+  const afterCodeMatch = textBeforeCursor.match(patterns.afterCode);
+  if (afterCodeMatch) {
+    return {
+      shouldSuggest: true,
+      isNewComment: true,
+      partialTag: afterCodeMatch[1] || "",
+      commentPrefix: commentPrefix
+    };
+  }
+
+  // Check if we're at the end of a line with some partial tag-like text
+  const endOfLinePattern = /\s+([A-Z_]+)$/i;
+  const endOfLineMatch = textBeforeCursor.match(endOfLinePattern);
+  if (endOfLineMatch && endOfLineMatch[1].length >= 2) {
+    return {
+      shouldSuggest: true,
+      isNewComment: true,
+      partialTag: endOfLineMatch[1],
+      commentPrefix: commentPrefix
+    };
+  }
+
+  return {
+    shouldSuggest: false,
+    isNewComment: false,
+    partialTag: ""
+  };
+}
+
+// Helper function to escape regex special characters
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Helper function to determine if emoji should be used for a tag
+function shouldUseEmoji(tag: CustomTag): boolean {
+  const config = vscode.workspace.getConfiguration("commentChameleon");
+  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
+  
+  // Use tag-specific setting if available, otherwise use global setting
+  const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+  return useEmoji && !!tag.emoji;
 }
 
 function triggerUpdateDecorations(
