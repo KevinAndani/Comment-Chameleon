@@ -16,27 +16,13 @@ import { TagEditorPanel, LanguageEditorPanel } from "./tagEditor/panels";
  * WHAT_THIS_DO: 🤔 Registers tag editor commands with VS Code
  * WHY: ❓ Provides command handlers for the modular tag editor system
  * ARCHITECTURE: 🏗️ Clean interface replacing the monolithic approach
+ * NOTE: 📝 Commands are now registered in commands/index.ts to avoid duplication
  * @param context - VS Code extension context for command registration
  */
 export function registerTagEditorCommands(context: vscode.ExtensionContext): void {
-  // Register the tag editor panel command
-  const openTagEditorCommand = vscode.commands.registerCommand(
-    "comment-chameleon.openTagEditor",
-    () => {
-      TagEditorPanel.createOrShow(context.extensionUri);
-    }
-  );
-
-  // Register the language editor panel command
-  const openLanguageEditorCommand = vscode.commands.registerCommand(
-    "comment-chameleon.openLanguageEditor", 
-    () => {
-      LanguageEditorPanel.createOrShow(context.extensionUri);
-    }
-  );
-
-  // Add commands to subscriptions for proper cleanup
-  context.subscriptions.push(openTagEditorCommand, openLanguageEditorCommand);
+  // EXPLANATION: 💬 Commands are now registered in the main commands module
+  // This function is kept for compatibility but could be removed in future versions
+  // The actual command registration happens in commands/index.ts
 }
 
 /**

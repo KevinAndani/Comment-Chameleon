@@ -8,7 +8,7 @@ import { registerCommands } from "./commands";
 import { registerCompletionProvider } from "./completion";
 import { triggerUpdateDecorations, clearAllDecorations } from "./decoration";
 import { updateCustomTagSnippets } from "./snippets";
-import { registerTagEditorCommands, disposeTagEditor } from "./tagEditorCommands";
+import { disposeTagEditor } from "./tagEditorCommands";
 
 // SECTION: 📑 Global Extension State
 // EXPLANATION: 💬 Centralized state management for the extension
@@ -112,8 +112,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // WHAT_THIS_DO: 🤔 Register all VS Code commands
   registerCommands(context, extensionState);
 
-  // WHAT_THIS_DO: 🤔 Register tag editor commands and panels
-  registerTagEditorCommands(context);
+  // NOTE: 📝 Tag editor commands are registered within registerCommands to avoid duplication
 
   // WHAT_THIS_DO: 🤔 Register intelligent completion provider
   registerCompletionProvider(context);

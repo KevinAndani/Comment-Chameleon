@@ -2,7 +2,7 @@
   "name": "comment-chameleon",
   "displayName": "Comment Chameleon",
   "description": "Enhance your comments with customizable tags, styles, and snippets.",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "publisher": "KevinAndani",
   "repository": {
     "type": "git",
@@ -111,6 +111,28 @@
               },
               "useEmoji": {
                 "type": "boolean"
+              }
+            }
+          }
+        },
+        "commentChameleon.userDefinedLanguages": {
+          "type": "array",
+          "default": [],
+          "description": "User-defined language configurations for custom comment syntax",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string"
+              },
+              "singleLineComment": {
+                "type": "string"
+              },
+              "multiLineStart": {
+                "type": "string"
+              },
+              "multiLineEnd": {
+                "type": "string"
               }
             }
           }

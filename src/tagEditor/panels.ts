@@ -181,7 +181,7 @@ export class TagEditorPanel {
    */
   private async _loadCustomTags(): Promise<CustomTagForEditor[]> {
     try {
-      const config = vscode.workspace.getConfiguration("better-comments");
+      const config = vscode.workspace.getConfiguration("commentChameleon");
       const customTags = config.get<CustomTagForEditor[]>("customTags", []);
 
       // Ensure all tags have required properties with defaults
@@ -213,11 +213,11 @@ export class TagEditorPanel {
       // Validate and clean tags before saving
       const validTags = tags.filter((tag) => tag.tag && tag.tag.trim() !== "");
 
-      const config = vscode.workspace.getConfiguration("better-comments");
+      const config = vscode.workspace.getConfiguration("commentChameleon");
       await config.update("customTags", validTags, vscode.ConfigurationTarget.Workspace);
 
       // Trigger decoration refresh if extension is active
-      vscode.commands.executeCommand("comment-chameleon.refreshDecorations");
+      vscode.commands.executeCommand("comment-chameleon.applyStyles");
     } catch (error) {
       console.error("Error saving custom tags:", error);
       throw new Error("Failed to save custom tags. Please check your workspace settings.");
@@ -231,11 +231,11 @@ export class TagEditorPanel {
    */
   private async _resetCustomTags(): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration("better-comments");
+      const config = vscode.workspace.getConfiguration("commentChameleon");
       await config.update("customTags", [], vscode.ConfigurationTarget.Workspace);
 
       // Trigger decoration refresh
-      vscode.commands.executeCommand("comment-chameleon.refreshDecorations");
+      vscode.commands.executeCommand("comment-chameleon.applyStyles");
     } catch (error) {
       console.error("Error resetting custom tags:", error);
       throw new Error("Failed to reset custom tags.");
@@ -356,16 +356,16 @@ export class LanguageEditorPanel {
   /**
    * WHAT_THIS_DO: 🤔 Saves language configuration to workspace settings
    * WHY: ❓ Persists language-specific comment syntax settings
-   * CONFIG: ⚙️ Updates better-comments.multilineComments configuration
+   * CONFIG: ⚙️ Updates commentChameleon language configuration
    * @param languages - Array of language configurations to save
    */
   private async _saveLanguageConfiguration(languages: any[]): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration("better-comments");
-      await config.update("multilineComments", languages, vscode.ConfigurationTarget.Workspace);
+      const config = vscode.workspace.getConfiguration("commentChameleon");
+      await config.update("userDefinedLanguages", languages, vscode.ConfigurationTarget.Workspace);
 
       // Trigger decoration refresh
-      vscode.commands.executeCommand("comment-chameleon.refreshDecorations");
+      vscode.commands.executeCommand("comment-chameleon.applyStyles");
     } catch (error) {
       console.error("Error saving language configuration:", error);
       throw new Error("Failed to save language configuration.");

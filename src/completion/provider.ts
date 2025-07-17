@@ -50,6 +50,13 @@ export function createCompletionProvider(): vscode.CompletionItemProvider {
 
       // PERFORMANCE: ⏱️ Filter tags based on partial user input
       const partialTag = commentContext.partialTag.toLowerCase();
+      
+      // OPTIMIZE: 🚀 Only show suggestions if we have a meaningful partial tag or are at comment start
+      if (partialTag.length > 0 && partialTag.length < 2) {
+        // Don't show suggestions for single characters unless it's clearly a tag start
+        return [];
+      }
+      
       const filteredTags = allTags.filter((tagObj) =>
         tagObj.tag.toLowerCase().includes(partialTag) || partialTag === ""
       );
@@ -108,8 +115,7 @@ export function registerCompletionProvider(context: vscode.ExtensionContext): vo
     "#",  // Python, shell scripts
     "<",  // HTML, XML comments
     "*",  // Multi-line C-style comments
-    ":",  // After tag names
-    " "   // After comment prefixes
+    ":"   // After tag names - removed space to prevent excessive triggering
   ];
 
   context.subscriptions.push(

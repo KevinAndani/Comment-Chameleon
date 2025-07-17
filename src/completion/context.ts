@@ -28,13 +28,13 @@ export function analyzeCommentContext(textBeforeCursor: string, languageId: stri
     // CONTEXT: 🌐 Examples: "/* ", "<!-- FIXME"
     multiLineStart: new RegExp(`(/\\*|<!--)\\s*([A-Z_]*)$`, 'i'),
     
-    // WHAT_THIS_DO: 🤔 Matches within existing comments
-    // CONTEXT: 🌐 Examples: "// Some text NOTE", "# Debug info TODO"
-    withinComment: new RegExp(`(${escapeRegex(commentPrefix)}|/\\*|<!--)\\s+.*?\\s*([A-Z_]*)$`, 'i'),
+    // WHAT_THIS_DO: 🤔 Matches within existing comments - more precise pattern
+    // CONTEXT: 🌐 Only triggers after comment prefix followed by space and then uppercase words
+    withinComment: new RegExp(`(${escapeRegex(commentPrefix)}|/\\*|<!--)\\s+[^A-Z]*?\\s+([A-Z_]{2,})$`, 'i'),
     
-    // WHAT_THIS_DO: 🤔 Matches after code statements for inline comments
-    // CONTEXT: 🌐 Examples: "return value; TODO", "} FIXME"
-    afterCode: new RegExp(`[;})]\\s*([A-Z_]*)$`, 'i'),
+    // WHAT_THIS_DO: 🤔 Matches after code statements for inline comments - more specific
+    // CONTEXT: 🌐 Only triggers with meaningful uppercase sequences
+    afterCode: new RegExp(`[;})]\\s+([A-Z_]{2,})$`, 'i'),
   };
 
   // SECTION: 📑 Context Analysis Logic
@@ -62,32 +62,41 @@ export function analyzeCommentContext(textBeforeCursor: string, languageId: stri
     };
   }
 
-  // WHAT_THIS_DO: 🤔 Check if we're within an existing comment
+  // WHAT_THIS_DO: 🤔 Check if we're within an existing comment but only suggest at specific positions
   const withinCommentMatch = textBeforeCursor.match(patterns.withinComment);
   if (withinCommentMatch) {
-    return {
-      shouldSuggest: true,
-      isNewComment: false,
-      partialTag: withinCommentMatch[2] || "",
-      commentPrefix: withinCommentMatch[1]
-    };
+    const partialTag = withinCommentMatch[2] || "";
+    // OPTIMIZE: 🚀 Only suggest if we have a partial tag that looks like a comment tag
+    // This prevents suggestions after every word in a comment sentence
+    if (partialTag.length >= 2 && /^[A-Z_]+$/i.test(partialTag)) {
+      return {
+        shouldSuggest: true,
+        isNewComment: false,
+        partialTag: partialTag,
+        commentPrefix: withinCommentMatch[1]
+      };
+    }
   }
 
   // WHAT_THIS_DO: 🤔 Check for inline comment opportunity after code
   const afterCodeMatch = textBeforeCursor.match(patterns.afterCode);
   if (afterCodeMatch) {
-    return {
-      shouldSuggest: true,
-      isNewComment: true,
-      partialTag: afterCodeMatch[1] || "",
-      commentPrefix: commentPrefix
-    };
+    const partialTag = afterCodeMatch[1] || "";
+    // OPTIMIZE: 🚀 Only suggest if we have a meaningful partial tag
+    if (partialTag.length >= 2 && /^[A-Z_]+$/i.test(partialTag)) {
+      return {
+        shouldSuggest: true,
+        isNewComment: true,
+        partialTag: partialTag,
+        commentPrefix: commentPrefix
+      };
+    }
   }
 
   // WHAT_THIS_DO: 🤔 Check for partial tag-like text at end of line
   const endOfLinePattern = /\s+([A-Z_]+)$/i;
   const endOfLineMatch = textBeforeCursor.match(endOfLinePattern);
-  if (endOfLineMatch && endOfLineMatch[1].length >= 2) {
+  if (endOfLineMatch && endOfLineMatch[1].length >= 3) { // Increased minimum length
     return {
       shouldSuggest: true,
       isNewComment: true,
