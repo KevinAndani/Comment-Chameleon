@@ -1,323 +1,301 @@
-// SECTION: 📑 Snippet Generation and Management
-// EXPLANATION: 💬 Functions for generating and managing VS Code snippets for comment tags
-// WHY: ❓ Provides dynamic autocomplete functionality for user-defined tags
+// SECTION: 📑 Production-Grade Snippet Management System
+// EXPLANATION: 💬 Intelligent, context-aware snippet generation with programmatic VS Code integration
+// WHY: ❓ Eliminates file-based snippet management in favor of dynamic completion providers
 
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
-import { CustomTag, Snippet } from "../types";
-import { getCustomTagsFromConfig, PREDEFINED_COMMENT_TAGS, shouldUseEmoji } from "../config";
+import { CustomTag } from "../types";
+import { getMergedTags } from "../config";
 
-/**
- * WHAT_THIS_DO: 🤔 Generates snippet body with consistent emoji formatting
- * WHY: ❓ Provides standardized snippet generation across different contexts
- * CONTEXT: 🌐 Used by snippet generators for various programming languages
- * @param tag - CustomTag object with styling and emoji properties
- * @param commentPrefix - Language-specific comment start syntax
- * @param commentSuffix - Language-specific comment end syntax (optional)
- * @returns Array containing snippet body string with proper formatting
- */
-function generateSnippetBodyWithEmoji(
-  tag: CustomTag,
-  commentPrefix: string,
-  commentSuffix: string = ""
-): string[] {
-  const config = vscode.workspace.getConfiguration("commentChameleon");
-  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
+// SECTION: 📑 Language Configuration Registry
+interface LanguageConfig {
+  singleLineComment?: string;
+  multiLineStart?: string;
+  multiLineEnd?: string;
+  id: string;
+}
 
-  // WHAT_THIS_DO: 🤔 Determine emoji usage based on tag and global settings
-  const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
+  javascript: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'javascript' },
+  typescript: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'typescript' },
+  c: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'c' },
+  cpp: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'cpp' },
+  csharp: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'csharp' },
+  java: { singleLineComment: '//', multiLineStart: '/*', multiLineEnd: '*/', id: 'java' },
+  python: { singleLineComment: '#', multiLineStart: '"""', multiLineEnd: '"""', id: 'python' },
+  html: { multiLineStart: '<!--', multiLineEnd: '-->', id: 'html' },
+  xml: { multiLineStart: '<!--', multiLineEnd: '-->', id: 'xml' },
+  svg: { multiLineStart: '<!--', multiLineEnd: '-->', id: 'svg' }
+};
 
-  // WHAT_THIS_DO: 🤔 Format emoji string with proper spacing
-  let emojiString = "";
-  if (useEmoji && tag.emoji) {
-    emojiString = ` ${tag.emoji}`;
+// SECTION: 📑 Smart Completion Item Factory
+class CommentSnippetProvider implements vscode.CompletionItemProvider {
+  private allTags: CustomTag[] = [];
+
+  constructor() {
+    this.refreshTags();
   }
 
-  // CONTEXT: 🌐 $1 is VS Code snippet placeholder for cursor position
-  return [`${commentPrefix}${tag.tag}${emojiString} $1${commentSuffix}`];
-}
-
-/**
- * WHAT_THIS_DO: 🤔 Generates snippets for C-style languages (JavaScript, TypeScript, C++, etc.)
- * WHY: ❓ Provides autocomplete functionality for // and /* comment styles
- * CONTEXT: 🌐 Used by languages that support both single-line and multi-line comments
- * @param tags - Array of custom tags to generate snippets for
- * @param type - Whether to generate single-line or multi-line comment snippets
- * @returns Record of snippet names to snippet definitions
- */
-function generateGeneralSnippets(
-  tags: CustomTag[],
-  type?: "single-line" | "multi-line"
-): Record<string, Snippet> {
-  const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("commentChameleon");
-  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
-
-  // WHAT_THIS_DO: 🤔 If no type specified, generate both single-line and multi-line
-  if (!type) {
-    const singleLineSnippets = generateGeneralSnippets(tags, "single-line");
-    const multiLineSnippets = generateGeneralSnippets(tags, "multi-line");
-    return { ...singleLineSnippets, ...multiLineSnippets };
+  refreshTags(): void {
+    this.allTags = getMergedTags();
   }
 
-  tags.forEach((tag) => {
-    // WHAT_THIS_DO: 🤔 Create clean tag name for snippet identification
-    const tagName = tag.tag
-      .replace(":", "")
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "");
+  provideCompletionItems(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    token: vscode.CancellationToken,
+    context: vscode.CompletionContext
+  ): vscode.CompletionItem[] {
+    const languageId = document.languageId;
+    const languageConfig = LANGUAGE_CONFIGS[languageId];
     
-    // SECURITY: 🔒 Skip empty tag names to prevent invalid snippets
-    if (!tagName) return;
-
-    // WHAT_THIS_DO: 🤔 Create human-readable snippet name
-    const friendlyName = `${tagName.charAt(0).toUpperCase() + tagName.slice(1)} Comment`;
-
-    // WHAT_THIS_DO: 🤔 Determine emoji usage based on tag and global settings
-    const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
-
-    // WHAT_THIS_DO: 🤔 Build emoji string if enabled
-    let emojiString = "";
-    if (useEmoji && tag.emoji) {
-      emojiString = ` ${tag.emoji}`;
+    if (!languageConfig) {
+      return [];
     }
 
-    // SECTION: 📑 Snippet Generation by Comment Type
-    if (type === "single-line") {
-      snippets[`${tagName}-single`] = {
-        prefix: tagName,
-        body: [`// ${tag.tag}${emojiString} $1`],
-        description: `${friendlyName} (Single Line)`
-      };
-    } else if (type === "multi-line") {
-      snippets[`${tagName}-multi`] = {
-        prefix: `${tagName}m`,
-        body: [`/* ${tag.tag}${emojiString} $1 */`],
-        description: `${friendlyName} (Multi Line)`
-      };
-    }
-  });
-
-  return snippets;
-}
-
-/**
- * WHAT_THIS_DO: 🤔 Generates snippets for Python hash-style comments
- * WHY: ❓ Provides autocomplete functionality for Python comment syntax
- * CONTEXT: 🌐 Python uses hash symbol for single-line comments
- * @param tags - Array of custom tags to generate snippets for
- * @returns Record of snippet names to snippet definitions
- */
-function generatePythonSnippets(
-  tags: CustomTag[]
-): Record<string, Snippet> {
-  const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("commentChameleon");
-  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
-
-  tags.forEach((tag) => {
-    // WHAT_THIS_DO: 🤔 Create clean tag name for snippet identification
-    const tagName = tag.tag
-      .replace(":", "")
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "");
+    const lineText = document.lineAt(position).text;
+    const linePrefix = lineText.substring(0, position.character);
     
-    // SECURITY: 🔒 Skip empty tag names to prevent invalid snippets
-    if (!tagName) return;
-
-    // WHAT_THIS_DO: 🤔 Determine emoji usage based on tag and global settings
-    const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
-
-    // WHAT_THIS_DO: 🤔 Build emoji string if enabled
-    let emojiString = "";
-    if (useEmoji && tag.emoji) {
-      emojiString = ` ${tag.emoji}`;
-    }
-
-    snippets[`${tagName}-python`] = {
-      prefix: tagName,
-      body: [`# ${tag.tag}${emojiString} $1`],
-      description: `${tag.tag} Comment (Python Style)`
-    };
-  });
-
-  return snippets;
-}
-
-/**
- * WHAT_THIS_DO: 🤔 Generates snippets for HTML/XML/SVG comment syntax
- * WHY: ❓ Provides autocomplete functionality for markup language comments
- * CONTEXT: 🌐 HTML, XML, and SVG use opening and closing comment tags
- * @param tags - Array of custom tags to generate snippets for
- * @returns Record of snippet names to snippet definitions
- */
-function generateHtmlSnippets(
-  tags: CustomTag[]
-): Record<string, Snippet> {
-  const snippets: Record<string, Snippet> = {};
-  const config = vscode.workspace.getConfiguration("commentChameleon");
-  const globalEmojiSetting = config.get<boolean>("useEmojis", true);
-
-  tags.forEach((tag) => {
-    // WHAT_THIS_DO: 🤔 Create clean tag name for snippet identification
-    const tagName = tag.tag
-      .replace(":", "")
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "");
-    
-    // SECURITY: 🔒 Skip empty tag names to prevent invalid snippets
-    if (!tagName) return;
-
-    // WHAT_THIS_DO: 🤔 Determine emoji usage based on tag and global settings
-    const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
-
-    // WHAT_THIS_DO: 🤔 Build emoji string if enabled
-    let emojiString = "";
-    if (useEmoji && tag.emoji) {
-      emojiString = ` ${tag.emoji}`;
-    }
-
-    snippets[`${tagName}-html`] = {
-      prefix: tagName,
-      body: [`<!-- ${tag.tag}${emojiString} $1 -->`],
-      description: `${tag.tag} Comment (HTML Style)`
-    };
-  });
-
-  return snippets;
-}
-
-/**
- * WHAT_THIS_DO: 🤔 Writes snippet objects to a file in JSON format
- * WHY: ❓ Creates VS Code compatible snippet files
- * @param context - VS Code extension context for file system access
- * @param relativePath - Relative path within snippets directory
- * @param snippets - Snippet objects to write
- */
-function writeSnippetsFile(
-  context: vscode.ExtensionContext,
-  relativePath: string,
-  snippets: Record<string, Snippet>
-): void {
-  const fullPath = path.join(context.extensionPath, "snippets", relativePath);
-  
-  // WHAT_THIS_DO: 🤔 Ensure directory exists before writing
-  const dir = path.dirname(fullPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    return this.generateCompletionItems(languageConfig, linePrefix);
   }
 
-  // WHAT_THIS_DO: 🤔 Write snippets as formatted JSON
-  fs.writeFileSync(fullPath, JSON.stringify(snippets, null, 2));
+  private generateCompletionItems(
+    languageConfig: LanguageConfig,
+    linePrefix: string
+  ): vscode.CompletionItem[] {
+    const items: vscode.CompletionItem[] = [];
+    const config = vscode.workspace.getConfiguration("commentChameleon");
+    const globalEmojiSetting = config.get<boolean>("useEmojis", true);
+
+    for (const tag of this.allTags) {
+      const tagName = this.normalizeTagName(tag.tag);
+      if (!tagName) continue;
+
+      const useEmoji = tag.useEmoji !== undefined ? tag.useEmoji : globalEmojiSetting;
+      const emojiString = useEmoji && tag.emoji ? ` ${tag.emoji}` : '';
+
+      // Generate context-aware completions based on current line prefix
+      items.push(...this.createTagCompletions(tag, tagName, emojiString, languageConfig, linePrefix));
+    }
+
+    return items;
+  }
+
+  private createTagCompletions(
+    tag: CustomTag,
+    tagName: string,
+    emojiString: string,
+    languageConfig: LanguageConfig,
+    linePrefix: string
+  ): vscode.CompletionItem[] {
+    const items: vscode.CompletionItem[] = [];
+    const trimmedPrefix = linePrefix.trim();
+
+    // Determine what types of comments this language supports
+    const hasSingleLine = !!languageConfig.singleLineComment;
+    const hasMultiLine = !!(languageConfig.multiLineStart && languageConfig.multiLineEnd);
+
+    // Languages with only one comment type (HTML/XML/SVG) - show simple completion
+    if (!hasSingleLine && hasMultiLine) {
+      // HTML-style languages: only multi-line comments
+      const multiStart = languageConfig.multiLineStart!;
+      const multiEnd = languageConfig.multiLineEnd!;
+
+      // Simple tag completion
+      if (!trimmedPrefix || !trimmedPrefix.includes(multiStart)) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${multiStart} ${tag.tag}${emojiString} $1 ${multiEnd}`);
+        item.detail = `${tag.tag} Comment`;
+        item.documentation = new vscode.MarkdownString(`Insert \`${multiStart} ${tag.tag}${emojiString} ${multiEnd}\` comment`);
+        item.sortText = `0_${tagName}`;
+        items.push(item);
+      }
+
+      // Comment-aware completion
+      if (trimmedPrefix.endsWith(multiStart) || trimmedPrefix.endsWith(multiStart + ' ')) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${tag.tag}${emojiString} $1 ${multiEnd}`);
+        item.detail = `${tag.tag} Comment (continuation)`;
+        item.documentation = new vscode.MarkdownString(`Continue with \`${tag.tag}${emojiString}\``);
+        item.sortText = `1_${tagName}`;
+        items.push(item);
+      }
+      
+      return items;
+    }
+
+    // Languages with only single-line comments (rare case)
+    if (hasSingleLine && !hasMultiLine) {
+      const singleCommentPrefix = languageConfig.singleLineComment!;
+      
+      // Simple tag completion
+      if (!trimmedPrefix || !trimmedPrefix.includes(singleCommentPrefix)) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${singleCommentPrefix} ${tag.tag}${emojiString} $1`);
+        item.detail = `${tag.tag} Comment`;
+        item.documentation = new vscode.MarkdownString(`Insert \`${singleCommentPrefix} ${tag.tag}${emojiString}\` comment`);
+        item.sortText = `0_${tagName}`;
+        items.push(item);
+      }
+
+      // Comment-aware completion
+      if (trimmedPrefix.endsWith(singleCommentPrefix) || trimmedPrefix.endsWith(singleCommentPrefix + ' ')) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${tag.tag}${emojiString} $1`);
+        item.detail = `${tag.tag} Comment (continuation)`;
+        item.documentation = new vscode.MarkdownString(`Continue with \`${tag.tag}${emojiString}\``);
+        item.sortText = `1_${tagName}`;
+        items.push(item);
+      }
+      
+      return items;
+    }
+
+    // Languages with both single-line and multi-line comments (C-style) - show explicit variants
+    if (hasSingleLine && hasMultiLine) {
+      const singleCommentPrefix = languageConfig.singleLineComment!;
+      const multiStart = languageConfig.multiLineStart!;
+      const multiEnd = languageConfig.multiLineEnd!;
+
+      // Single-line completion with -s suffix
+      if (!trimmedPrefix || !trimmedPrefix.includes(singleCommentPrefix)) {
+        const item = new vscode.CompletionItem(`${tagName}-s`, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${singleCommentPrefix} ${tag.tag}${emojiString} $1`);
+        item.detail = `${tag.tag} Comment (Single Line)`;
+        item.documentation = new vscode.MarkdownString(`Insert \`${singleCommentPrefix} ${tag.tag}${emojiString}\` comment`);
+        item.sortText = `0_${tagName}_single`;
+        items.push(item);
+      }
+
+      // Multi-line completion with -m suffix
+      if (!trimmedPrefix || !trimmedPrefix.includes(multiStart)) {
+        const item = new vscode.CompletionItem(`${tagName}-m`, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${multiStart} ${tag.tag}${emojiString} $1 ${multiEnd}`);
+        item.detail = `${tag.tag} Comment (Multi-line)`;
+        item.documentation = new vscode.MarkdownString(`Insert \`${multiStart} ${tag.tag}${emojiString} ${multiEnd}\` comment`);
+        item.sortText = `0_${tagName}_multi`;
+        items.push(item);
+      }
+
+      // Comment-aware completions
+      if (trimmedPrefix.endsWith(singleCommentPrefix) || trimmedPrefix.endsWith(singleCommentPrefix + ' ')) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${tag.tag}${emojiString} $1`);
+        item.detail = `${tag.tag} Comment (single-line continuation)`;
+        item.documentation = new vscode.MarkdownString(`Continue with \`${tag.tag}${emojiString}\``);
+        item.sortText = `1_${tagName}_single_cont`;
+        items.push(item);
+      }
+
+      if (trimmedPrefix.endsWith(multiStart) || trimmedPrefix.endsWith(multiStart + ' ')) {
+        const item = new vscode.CompletionItem(tagName, vscode.CompletionItemKind.Snippet);
+        item.insertText = new vscode.SnippetString(`${tag.tag}${emojiString} $1 ${multiEnd}`);
+        item.detail = `${tag.tag} Comment (multi-line continuation)`;
+        item.documentation = new vscode.MarkdownString(`Continue with \`${tag.tag}${emojiString}\``);
+        item.sortText = `1_${tagName}_multi_cont`;
+        items.push(item);
+      }
+    }
+
+    return items;
+  }
+
+  private normalizeTagName(tag: string): string {
+    return tag.replace(":", "").toLowerCase().trim().replace(/\s+/g, "");
+  }
 }
 
+// SECTION: 📑 Provider Registration and Management
+let snippetProvider: CommentSnippetProvider | undefined;
+let disposables: vscode.Disposable[] = [];
+
 /**
- * WHAT_THIS_DO: 🤔 Generates or clears snippet files based on custom tag configuration
- * WHY: ❓ Provides dynamic autocomplete functionality for user-defined tags
- * PERFORMANCE: ⏱️ Only processes user-defined tags to avoid snippet conflicts
- * @param context - VS Code extension context for file system access
+ * WHAT_THIS_DO: 🤔 Registers intelligent completion providers for all supported languages
+ * WHY: ❓ Provides dynamic, context-aware snippet suggestions without file management
+ * PERFORMANCE: ⏱️ Uses VS Code's native completion API for optimal performance
  */
 export function updateCustomTagSnippets(context: vscode.ExtensionContext): void {
-  // PERFORMANCE: ⏱️ Fetch only custom tags to avoid predefined tag conflicts
-  const customTags = getCustomTagsFromConfig();
+  // Dispose existing providers
+  disposeProviders();
 
-  if (customTags.length === 0) {
-    // INFO: ℹ️ Clear snippet files when no custom tags are defined
-    console.log("No user-defined custom tags found, clearing custom snippet files.");
-    clearSnippetFiles(context);
+  const allTags = getMergedTags();
+  
+  if (allTags.length === 0) {
+    console.log("No tags defined, snippet providers disabled.");
     return;
   }
 
-  // DEBUG: 🐞 Log snippet generation for development monitoring
-  console.log(`Generating custom snippets for ${customTags.length} user-defined tags.`);
+  console.log(`Registering intelligent completion providers for ${allTags.length} tags (predefined + custom).`);
 
-  // SECTION: 📑 Language-Specific Snippet Generator Registry
-  // EXPLANATION: 💬 Maps programming languages to their specific snippet generators
-  const languageSnippetGenerators: Record<
-    string, 
-    (tags: CustomTag[], type?: "single-line" | "multi-line") => Record<string, Snippet>
-  > = {
-    javascript: generateGeneralSnippets,  // C-style comments
-    typescript: generateGeneralSnippets,  // C-style comments
-    c: generateGeneralSnippets,           // C-style comments
-    cpp: generateGeneralSnippets,         // C-style comments
-    csharp: generateGeneralSnippets,      // C-style comments
-    java: generateGeneralSnippets,        // C-style comments
-    python: generatePythonSnippets,       // Hash-style comments
-    html: generateHtmlSnippets,           // HTML-style comments
-    xml: generateHtmlSnippets,            // XML-style comments
-    svg: generateHtmlSnippets,            // SVG-style comments
-  };
+  // Create and register new provider
+  snippetProvider = new CommentSnippetProvider();
+  
+  // Register for all supported languages
+  const supportedLanguages = Object.keys(LANGUAGE_CONFIGS);
+  
+  for (const language of supportedLanguages) {
+    const disposable = vscode.languages.registerCompletionItemProvider(
+      language,
+      snippetProvider,
+      ...getTriggerCharacters(language)
+    );
+    
+    disposables.push(disposable);
+    context.subscriptions.push(disposable);
+  }
 
-  // WHAT_THIS_DO: 🤔 Generate snippets for each supported language
-  for (const [language, generator] of Object.entries(languageSnippetGenerators)) {
-    const languageDir = path.join(context.extensionPath, "snippets", language);
+  console.log(`Completion providers registered for languages: ${supportedLanguages.join(', ')}`);
+}
 
-    // WHAT_THIS_DO: 🤔 Ensure language-specific directory exists for snippet files
-    if (!fs.existsSync(languageDir)) {
-      fs.mkdirSync(languageDir, { recursive: true });
-    }
+/**
+ * WHAT_THIS_DO: 🤔 Determines appropriate trigger characters for each language
+ * WHY: ❓ Optimizes completion triggering based on comment syntax
+ */
+function getTriggerCharacters(language: string): string[] {
+  const config = LANGUAGE_CONFIGS[language];
+  const triggers: string[] = [];
 
-    if (language === "python" || language === "html" || language === "xml" || language === "svg") {
-      // WHAT_THIS_DO: 🤔 Single comment style for these languages
-      const customSnippets = generator(customTags);
-      writeSnippetsFile(
-        context, 
-        path.join(language, `${language}-custom.code-snippets`), 
-        customSnippets
-      );
-    } else {
-      // SECTION: 📑 Generate Custom Tag Snippets for C-style languages
-      // EXPLANATION: 💬 Create snippets for user-defined comment tags
-      
-      // WHAT_THIS_DO: 🤔 Generate single-line snippets for custom tags
-      const singleLineCustomSnippets = generator(customTags, "single-line");
-      writeSnippetsFile(
-        context, 
-        path.join(language, `single-line-${language}-custom.code-snippets`), 
-        singleLineCustomSnippets
-      );
+  if (config.singleLineComment) {
+    // Trigger on comment start characters
+    triggers.push(...config.singleLineComment.split(''));
+  }
 
-      // WHAT_THIS_DO: 🤔 Generate multi-line snippets for custom tags
-      const multiLineCustomSnippets = generator(customTags, "multi-line");
-      writeSnippetsFile(
-        context, 
-        path.join(language, `multi-line-${language}-custom.code-snippets`), 
-        multiLineCustomSnippets
-      );
-    }
+  if (config.multiLineStart) {
+    // Trigger on multi-line comment start characters
+    triggers.push(...config.multiLineStart.split(''));
+  }
+
+  // Always trigger on space and common tag characters
+  triggers.push(' ', ':', '_', '-');
+
+  return [...new Set(triggers)]; // Remove duplicates
+}
+
+/**
+ * WHAT_THIS_DO: 🤔 Disposes all registered completion providers
+ * WHY: ❓ Prevents memory leaks and ensures clean updates
+ */
+function disposeProviders(): void {
+  disposables.forEach(d => d.dispose());
+  disposables = [];
+  snippetProvider = undefined;
+}
+
+/**
+ * WHAT_THIS_DO: 🤔 Updates existing providers with new tag configuration
+ * WHY: ❓ Provides real-time updates without VS Code restart
+ */
+export function refreshSnippetProviders(): void {
+  if (snippetProvider) {
+    snippetProvider.refreshTags();
+    console.log("Snippet providers refreshed with updated tag configuration.");
   }
 }
 
 /**
- * WHAT_THIS_DO: 🤔 Removes all custom snippet files from the file system
- * WHY: ❓ Cleanup function when no custom tags are defined
- * PERFORMANCE: ⏱️ Recursive deletion for complete cleanup
- * @param context - VS Code extension context for file system access
+ * WHAT_THIS_DO: 🤔 Cleanup function for extension deactivation
+ * WHY: ❓ Ensures proper resource disposal
  */
-function clearSnippetFiles(context: vscode.ExtensionContext): void {
-  const snippetsDir = path.join(context.extensionPath, "snippets");
-
-  // CONTEXT: 🌐 List of all languages with snippet support
-  const supportedLanguages = [
-    "javascript", "typescript", "c", "cpp", "csharp", 
-    "java", "python", "html", "xml", "svg",
-  ];
-
-  // WHAT_THIS_DO: 🤔 Remove language-specific directories and all contained files
-  for (const language of supportedLanguages) {
-    const languageDir = path.join(snippetsDir, language);
-
-    // SECURITY: 🔒 Check existence before attempting deletion
-    if (fs.existsSync(languageDir)) {
-      fs.rmSync(languageDir, { recursive: true, force: true });
-    }
-  }
-
-  // DEBUG: 🐞 Log cleanup completion for development verification
-  console.log("Cleared custom snippet files.");
+export function disposeSnippetProviders(): void {
+  disposeProviders();
+  console.log("Snippet providers disposed.");
 }

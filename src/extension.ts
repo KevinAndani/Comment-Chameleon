@@ -7,7 +7,7 @@ import { ExtensionState } from "./types";
 import { registerCommands } from "./commands";
 import { registerCompletionProvider } from "./completion";
 import { triggerUpdateDecorations, clearAllDecorations } from "./decoration";
-import { updateCustomTagSnippets } from "./snippets";
+import { updateCustomTagSnippets, refreshSnippetProviders, disposeSnippetProviders } from "./snippets";
 import { disposeTagEditor } from "./tagEditorCommands";
 
 // SECTION: 📑 Global Extension State
@@ -50,8 +50,8 @@ function setupEventListeners(context: vscode.ExtensionContext, state: ExtensionS
             triggerUpdateDecorations(vscode.window.activeTextEditor, state, true);
           }
           
-          // NEXT STEP: ➡️ Update snippets to reflect new configuration
-          updateCustomTagSnippets(context);
+          // NEXT STEP: ➡️ Refresh snippet providers to reflect new configuration
+          refreshSnippetProviders();
         }
       }
     )
@@ -148,7 +148,10 @@ export function deactivate(): void {
     }
   }
   
-  // CLEANUP: 🧹 Dispose tag editor resources
+  // CLEANUP: 🧹 Dispose snippet providers
+  disposeSnippetProviders();
+  
+  // CLEANUP: 🧹 Dispose tag editor resources  
   disposeTagEditor();
   
   console.log("Comment Chameleon (Modularized) deactivated");
